@@ -15,8 +15,7 @@ import random
 
 sys.path.append(os.path.abspath('/Env'))
 
-import graphEmbEnvPPO as geePPO
-import graphEmbEnvDQN as geeDQN
+import graphEmbEnv as gee
 
 
 from stable_baselines3 import PPO
@@ -134,15 +133,8 @@ def main(name):
         H = chain2x5_graph1.copy()
 
     # Creazione dell'ambiente
-    env = None
-    env_rnd = None
-    print("NORM ", launch_params['norm'])
-    if(launch_params['algo'] == "PPO"):
-        env = geePPO.GraphEmbEnvPPO(H, target_graph, 0.1, launch_params['norm'])
-        env_rnd = geePPO.GraphEmbEnvPPO(H, target_graph, 0.1, launch_params['norm'])
-    elif(launch_params['algo'] == "DQN"):
-        env = geeDQN.GraphEmbEnvDQN(H, target_graph, 0.1, launch_params['norm'])
-        env_rnd = geeDQN.GraphEmbEnvDQN(H, target_graph, 0.1, launch_params['norm'])
+    env = gee.GraphEmbEnv(H, target_graph, 0.1, launch_params['norm'])
+    env_rnd = gee.GraphEmbEnv(H, target_graph, 0.1, launch_params['norm'])
 
     # Wrap env in un VecEnv per parall
     #env = make_vec_env(lambda: env, n_envs=1)

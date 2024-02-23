@@ -8,10 +8,10 @@ import networkx as nx
 import dwave_networkx as dnx
 import math
 
-class GraphEmbEnvPPO(gym.Env):
+class GraphEmbEnv(gym.Env):
 
     def __init__(self, source_graph, target_graph, delta_heat, norm):
-        super(GraphEmbEnvPPO, self).__init__()
+        super(GraphEmbEnv, self).__init__()
         
         self.source_graph = source_graph
         self.modified_graph = self.source_graph.copy()
