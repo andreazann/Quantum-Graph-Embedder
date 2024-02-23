@@ -1,0 +1,15 @@
+RL
+
+ep_len_mean: 1.0
+rew_mean: 0.12343003896576288
+ep_qubits_mean: 22.0
+
+RND
+
+ep_len_mean: 2.5555555555555554
+rew_mean: 0.0745813811829522
+ep_qubits_mean: 24.22222222222222
+
+TRUE EMBEDDING
+
+ep_qubits_mean: 22.5
