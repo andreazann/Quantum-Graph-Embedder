@@ -12,6 +12,7 @@ import decimal
 import os
 import sys
 import random
+import ast
 
 sys.path.append(os.path.abspath('/Env'))
 
@@ -97,11 +98,6 @@ def argument_parser():
 
     return args
 
-#TEST
-
-"""
-
-"""
 
 def main(name):
 
@@ -118,6 +114,9 @@ def main(name):
     chain2x5_graph1 = nx.Graph([(0, 6), (0, 13), (1, 11), (2, 4), (2, 8), (2, 14), (3, 8), (4, 5), (4, 11), (5, 8), (5, 12), (6, 7), (6, 10), (6, 13), (7, 10), (8, 11), (8, 13), (9, 14), (11, 13), (13, 14)])
     chain2x5_graph2 = nx.Graph([(0, 4), (0, 10), (0, 13), (1, 4), (2, 8), (2, 10), (2, 11), (2, 13), (3, 4), (3, 9), (4, 7), (4, 12), (4, 13), (5, 14), (6, 13), (7, 13), (7, 14), (8, 14), (9, 13)])
     chain2x5_graph3 = nx.Graph([(0, 3), (0, 7), (0, 8), (0, 13), (1, 5), (1, 8), (2, 3), (2, 14), (3, 10), (4, 6), (4, 7), (4, 8), (4, 9), (4, 13), (5, 8), (5, 11), (5, 14), (7, 14), (8, 12), (9, 10), (12, 14)])
+
+    chain2x5_training_set = get_graph_dataset("training_set_2nodes_chain.txt")
+    chain2x5_test_set = get_graph_dataset("test_set_2nodes_chain.txt")
 
     target_graph=dnx.chimera_graph(15, 15, 4)
     H = nx.Graph()
@@ -146,18 +145,23 @@ def main(name):
         # Creazione del modello PPO
         model = None
         model_path = os.path.join('Training', 'Saved Models', launch_params['train1'])
-        if launch_params['algo'] == "PPO":
-            model = PPO("MlpPolicy", env, verbose=1, learning_rate=launch_params['lr'], tensorboard_log=log_path)
-            for i in range(1, round(launch_params['ts']/TIMESTEPS)+1):
-                model.learn(total_timesteps=TIMESTEPS, reset_num_timesteps=False, tb_log_name=launch_params['train1'])
-                step_path = os.path.join(model_path, str(TIMESTEPS*i))
-                model.save(step_path)
-        elif launch_params['algo'] == "DQN": 
-            model = DQN("MlpPolicy", env, verbose=1, learning_rate=launch_params['lr'], gamma=launch_params['gamma'], tensorboard_log=log_path)
-            for i in range(1, round(launch_params['ts']/TIMESTEPS)+1):
-                model.learn(total_timesteps=TIMESTEPS,  log_interval=512, reset_num_timesteps=False, tb_log_name=launch_params['train1'])
-                step_path = os.path.join(model_path, str(TIMESTEPS*i))
-                model.save(step_path)
+        graph_i = 0
+        for source_graph in chain2x5_training_set:
+            print(f"### TRAINING ON GRAPH {graph_i+1} ###")
+            env.update_source_graph(source_graph)  # Aggiorna l'ambiente con il nuovo grafo
+            if launch_params['algo'] == "PPO":
+                model = PPO("MlpPolicy", env, verbose=1, learning_rate=launch_params['lr'], tensorboard_log=log_path)
+                for i in range(1, round(launch_params['ts']/TIMESTEPS)+1):
+                    model.learn(total_timesteps=TIMESTEPS, reset_num_timesteps=False, tb_log_name=launch_params['train1'])
+                    step_path = os.path.join(model_path, str(graph_i*launch_params['ts'] + TIMESTEPS*i))
+                    model.save(step_path)
+            elif launch_params['algo'] == "DQN": 
+                model = DQN("MlpPolicy", env, verbose=1, learning_rate=launch_params['lr'], gamma=launch_params['gamma'], tensorboard_log=log_path)
+                for i in range(1, round(launch_params['ts']/TIMESTEPS)+1):
+                    model.learn(total_timesteps=TIMESTEPS,  log_interval=512, reset_num_timesteps=False, tb_log_name=launch_params['train1'])
+                    step_path = os.path.join(model_path, str(graph_i*launch_params['ts'] + TIMESTEPS*i))
+                    model.save(step_path)
+            graph_i = graph_i + 1
         
         """model = None
         if launch_params['algo'] == "PPO":
@@ -326,7 +330,7 @@ def episode_log(episode, total_info, total_info_rnd, score, score_rnd, action_fr
             neighbor_selected = total_info[k]['neighbors'][total_info[k]['action']]
         else:
             neighbor_selected = -1
-        file_content = f"{file_content}\t###TIMESTEP {k}###\n\n\tNodes heat: {total_info[k]['nodes_heat']}\n\n\tAvg heat: {total_info[k]['avg_heat']}\n\n\tTarget heat: {total_info[k]['target_heat']}\n\n\tEmbeddings: {total_info[k]['embeddings']}\n\n\tPriority node: {total_info[k]['priority_node']}\n\n\tAction node selected: {neighbor_selected}\n\n\tAction selected: {total_info[k]['action']}\n\n\tState: {total_info[k]['state']}\n\n\tAvail aux node: {total_info[k]['avail_aux_node']}\n\n"
+        file_content = f"{file_content}\t### TIMESTEP {k} ###\n\n\tNodes heat: {total_info[k]['nodes_heat']}\n\n\tAvg heat: {total_info[k]['avg_heat']}\n\n\tTarget heat: {total_info[k]['target_heat']}\n\n\tEmbeddings: {total_info[k]['embeddings']}\n\n\tPriority node: {total_info[k]['priority_node']}\n\n\tAction node selected: {neighbor_selected}\n\n\tAction selected: {total_info[k]['action']}\n\n\tState: {total_info[k]['state']}\n\n\tAvail aux node: {total_info[k]['avail_aux_node']}\n\n"
 
     file_content = f"{file_content}Score random: {score_rnd}\nTotal timesteps random: {ts_rnd}\n\nEmbedding ReL: {embedding_rnd}\n\nEmbedding ReL Composed: {embedding_rnd_comp}\n\n"
 
@@ -375,6 +379,20 @@ def register_action_freq(total_action_freq, action_freq, obs, action):
     else:
         action_freq[-1] = action_freq[-1] + 1
         total_action_freq[-1] = total_action_freq[-1] + 1
+
+def get_graph_dataset(dataset_file_name):
+    graphs_list = []
+    dataset_path = os.path.join("GraphDatasets", dataset_file_name)
+    with open(dataset_path, 'r') as file:
+        for line in file:
+            edges = ast.literal_eval(line.strip())
+            
+            G = nx.Graph()
+            G.add_edges_from(edges)
+            
+            graphs_list.append(G)
+
+    return graphs_list
 
 def save_figs(H, G, embedding_rel, embedding_rel_comp, embedding_rnd, embedding_rnd_comp, embedding_true, episode_fld):
 
