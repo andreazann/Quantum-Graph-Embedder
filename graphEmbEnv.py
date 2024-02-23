@@ -265,6 +265,10 @@ class GraphEmbEnv(gym.Env):
         complexity = alpha * (len(self.source_graph.nodes()) ** gamma) + beta * (len(self.source_graph.edges()) ** delta)
         return complexity
     
+    def update_source_graph(self, new_source_graph):
+        self.source_graph = new_source_graph
+        self.reset()
+    
     def get_info(self, reward, state, action, neighbors, avail_aux_node):
         info = {"start_heat": self.start_heat,
                 "avg_heat": self.get_avg_heat(),

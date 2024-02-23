@@ -144,22 +144,22 @@ def main(name):
     if launch_params['train1']:
 
         # Creazione del modello PPO
-        """model = None
+        model = None
         model_path = os.path.join('Training', 'Saved Models', launch_params['train1'])
         if launch_params['algo'] == "PPO":
             model = PPO("MlpPolicy", env, verbose=1, learning_rate=launch_params['lr'], tensorboard_log=log_path)
             for i in range(1, round(launch_params['ts']/TIMESTEPS)+1):
-                model.learn(total_timesteps=TIMESTEPS, reset_num_timesteps=False, tb_log_name="PPO")
+                model.learn(total_timesteps=TIMESTEPS, reset_num_timesteps=False, tb_log_name=launch_params['train1'])
                 step_path = os.path.join(model_path, str(TIMESTEPS*i))
                 model.save(step_path)
         elif launch_params['algo'] == "DQN": 
             model = DQN("MlpPolicy", env, verbose=1, learning_rate=launch_params['lr'], gamma=launch_params['gamma'], tensorboard_log=log_path)
             for i in range(1, round(launch_params['ts']/TIMESTEPS)+1):
-                model.learn(total_timesteps=TIMESTEPS,  log_interval=512, reset_num_timesteps=False, tb_log_name="DQN")
+                model.learn(total_timesteps=TIMESTEPS,  log_interval=512, reset_num_timesteps=False, tb_log_name=launch_params['train1'])
                 step_path = os.path.join(model_path, str(TIMESTEPS*i))
-                model.save(step_path)"""
+                model.save(step_path)
         
-        model = None
+        """model = None
         if launch_params['algo'] == "PPO":
             model = PPO("MlpPolicy", env, verbose=1, learning_rate=launch_params['lr'], tensorboard_log=log_path)
             model.learn(total_timesteps=launch_params['ts'], tb_log_name=launch_params['train1'])
@@ -172,7 +172,7 @@ def main(name):
         model_path = os.path.join('Training', 'Saved Models', launch_params['train1'])
 
         # Salvataggio del modello
-        model.save(model_path)
+        model.save(model_path)"""
 
     elif launch_params['train']:
 
