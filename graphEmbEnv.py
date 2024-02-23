@@ -151,7 +151,7 @@ class GraphEmbEnv(gym.Env):
             H_sub = self.get_subgraph_by_hop(node, hops)
             
             if hops==1:
-                chimera_graph = dnx.chimera_graph(3, 3, 4)
+                chimera_graph = dnx.chimera_graph(4, 4, 4)
             else:
                 chimera_graph = dnx.chimera_graph(12, 12, 4)
             embedding = find_embedding(H_sub, chimera_graph)

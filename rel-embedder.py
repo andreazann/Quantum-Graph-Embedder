@@ -142,26 +142,48 @@ def main(name):
 
     if launch_params['train1']:
 
-        # Creazione del modello PPO
         model = None
         model_path = os.path.join('Training', 'Saved Models', launch_params['train1'])
+        if launch_params['algo'] == "PPO":
+            model = PPO("MlpPolicy", env, verbose=1, learning_rate=launch_params['lr'], tensorboard_log=log_path)
+        elif launch_params['algo'] == "DQN": 
+            model = DQN("MlpPolicy", env, verbose=1, learning_rate=launch_params['lr'], gamma=launch_params['gamma'], tensorboard_log=log_path)
         graph_i = 0
         for source_graph in chain2x5_training_set:
             print(f"### TRAINING ON GRAPH {graph_i+1} ###")
             env.update_source_graph(source_graph)  # Aggiorna l'ambiente con il nuovo grafo
             if launch_params['algo'] == "PPO":
-                model = PPO("MlpPolicy", env, verbose=1, learning_rate=launch_params['lr'], tensorboard_log=log_path)
                 for i in range(1, round(launch_params['ts']/TIMESTEPS)+1):
                     model.learn(total_timesteps=TIMESTEPS, reset_num_timesteps=False, tb_log_name=launch_params['train1'])
                     step_path = os.path.join(model_path, str(graph_i*launch_params['ts'] + TIMESTEPS*i))
                     model.save(step_path)
             elif launch_params['algo'] == "DQN": 
-                model = DQN("MlpPolicy", env, verbose=1, learning_rate=launch_params['lr'], gamma=launch_params['gamma'], tensorboard_log=log_path)
                 for i in range(1, round(launch_params['ts']/TIMESTEPS)+1):
                     model.learn(total_timesteps=TIMESTEPS,  log_interval=512, reset_num_timesteps=False, tb_log_name=launch_params['train1'])
                     step_path = os.path.join(model_path, str(graph_i*launch_params['ts'] + TIMESTEPS*i))
                     model.save(step_path)
-            graph_i = graph_i + 1
+
+        """model = None
+        model_path = os.path.join('Training', 'Saved Models', launch_params['train1'])
+        if launch_params['algo'] == "PPO":
+            model = PPO("MlpPolicy", env, verbose=1, learning_rate=launch_params['lr'], tensorboard_log=log_path)
+        elif launch_params['algo'] == "DQN": 
+            model = DQN("MlpPolicy", env, verbose=1, learning_rate=launch_params['lr'], gamma=launch_params['gamma'], tensorboard_log=log_path)
+        graph_i = 0
+        for source_graph in chain2x5_training_set:
+            print(f"### TRAINING ON GRAPH {graph_i+1} ###")
+            env.update_source_graph(source_graph)  # Aggiorna l'ambiente con il nuovo grafo
+            if launch_params['algo'] == "PPO":
+                for i in range(1, round(launch_params['ts']/TIMESTEPS)+1):
+                    model.learn(total_timesteps=TIMESTEPS, reset_num_timesteps=False, tb_log_name=launch_params['train1'])
+                    step_path = os.path.join(model_path, str(graph_i*launch_params['ts'] + TIMESTEPS*i))
+                    model.save(step_path)
+            elif launch_params['algo'] == "DQN": 
+                for i in range(1, round(launch_params['ts']/TIMESTEPS)+1):
+                    model.learn(total_timesteps=TIMESTEPS,  log_interval=512, reset_num_timesteps=False, tb_log_name=launch_params['train1'])
+                    step_path = os.path.join(model_path, str(graph_i*launch_params['ts'] + TIMESTEPS*i))
+                    model.save(step_path)
+            graph_i = graph_i + 1"""
         
         """model = None
         if launch_params['algo'] == "PPO":
