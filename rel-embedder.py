@@ -17,12 +17,14 @@ import ast
 sys.path.append(os.path.abspath('/Env'))
 
 import graphEmbEnv as gee
+from updateEnvCallback import UpdateEnvCallback
 
 
 from stable_baselines3 import PPO
 from stable_baselines3 import DQN
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.evaluation import evaluate_policy
+from stable_baselines3.common.callbacks import CallbackList, CheckpointCallback, EvalCallback, StopTrainingOnRewardThreshold, EveryNTimesteps, StopTrainingOnNoModelImprovement
 
 def argument_parser():
     """
@@ -116,6 +118,7 @@ def main(name):
     chain2x5_graph3 = nx.Graph([(0, 3), (0, 7), (0, 8), (0, 13), (1, 5), (1, 8), (2, 3), (2, 14), (3, 10), (4, 6), (4, 7), (4, 8), (4, 9), (4, 13), (5, 8), (5, 11), (5, 14), (7, 14), (8, 12), (9, 10), (12, 14)])
 
     chain2x5_training_set = get_graph_dataset("training_set_2nodes_chain.txt")
+    chain2x5_validation_set = get_graph_dataset("validation_set_2nodes_chain.txt")
     chain2x5_test_set = get_graph_dataset("test_set_2nodes_chain.txt")
 
     target_graph=dnx.chimera_graph(15, 15, 4)
@@ -131,14 +134,17 @@ def main(name):
         print("2x5")
         H = chain2x5_graph1.copy()
 
-    # Creazione dell'ambiente
+    # Creazione degli ambienti
     env = gee.GraphEmbEnv(H, target_graph, 0.1, launch_params['norm'])
     env_rnd = gee.GraphEmbEnv(H, target_graph, 0.1, launch_params['norm'])
+    eval_env = gee.GraphEmbEnv(H, target_graph, 0.1, launch_params['norm'])
 
     # Wrap env in un VecEnv per parall
     #env = make_vec_env(lambda: env, n_envs=1)
         
-    TIMESTEPS = 5000
+    TIMESTEPS = 10
+    EVAL_FREQ = 5000
+    SAVE_FREQ = 5000
 
     if launch_params['train1']:
 
@@ -148,20 +154,20 @@ def main(name):
             model = PPO("MlpPolicy", env, verbose=1, learning_rate=launch_params['lr'], tensorboard_log=log_path)
         elif launch_params['algo'] == "DQN": 
             model = DQN("MlpPolicy", env, verbose=1, learning_rate=launch_params['lr'], gamma=launch_params['gamma'], tensorboard_log=log_path)
-        graph_i = 0
-        for source_graph in chain2x5_training_set:
-            print(f"### TRAINING ON GRAPH {graph_i+1} ###")
-            env.update_source_graph(source_graph)  # Aggiorna l'ambiente con il nuovo grafo
-            if launch_params['algo'] == "PPO":
-                for i in range(1, round(launch_params['ts']/TIMESTEPS)+1):
-                    model.learn(total_timesteps=TIMESTEPS, reset_num_timesteps=False, tb_log_name=launch_params['train1'])
-                    step_path = os.path.join(model_path, str(graph_i*launch_params['ts'] + TIMESTEPS*i))
-                    model.save(step_path)
-            elif launch_params['algo'] == "DQN": 
-                for i in range(1, round(launch_params['ts']/TIMESTEPS)+1):
-                    model.learn(total_timesteps=TIMESTEPS,  log_interval=512, reset_num_timesteps=False, tb_log_name=launch_params['train1'])
-                    step_path = os.path.join(model_path, str(graph_i*launch_params['ts'] + TIMESTEPS*i))
-                    model.save(step_path)
+        
+        #checkpoint_path = os.path.join(model_path, 
+        checkpoint_on_steps = CheckpointCallback(save_freq=SAVE_FREQ//TIMESTEPS, save_path=model_path, verbose=2)
+        update_env_callback = UpdateEnvCallback(env, eval_env, EVAL_FREQ//TIMESTEPS, chain2x5_training_set, chain2x5_validation_set)
+        n_timesteps_callback_list = CallbackList([checkpoint_on_steps, update_env_callback])
+        n_timesteps_callback = EveryNTimesteps(n_steps=TIMESTEPS, callback=n_timesteps_callback_list)
+        #callback_on_best = StopTrainingOnRewardThreshold(reward_threshold=0.1, verbose=1)
+        stop_no_improv_callback = StopTrainingOnNoModelImprovement(max_no_improvement_evals=5, min_evals=20, verbose=1)
+        eval_callback = EvalCallback(eval_env, eval_freq=EVAL_FREQ, callback_on_new_best=stop_no_improv_callback, verbose=1)
+        global_callback_list = CallbackList([n_timesteps_callback, eval_callback])
+        if launch_params['algo'] == "PPO":
+            model.learn(total_timesteps=int(1e10), progress_bar=False, callback=global_callback_list, tb_log_name=launch_params['train1'])
+        elif launch_params['algo'] == "DQN": 
+            model.learn(total_timesteps=int(1e10), progress_bar=False, callback=global_callback_list, log_interval=512, tb_log_name=launch_params['train1'])
 
         """model = None
         model_path = os.path.join('Training', 'Saved Models', launch_params['train1'])

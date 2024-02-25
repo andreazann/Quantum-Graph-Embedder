@@ -149,14 +149,18 @@ class GraphEmbEnv(gym.Env):
 
         for node in nodes_list:
             H_sub = self.get_subgraph_by_hop(node, hops)
+            embedding = False
+            dim = 3
             
-            if hops==1:
-                chimera_graph = dnx.chimera_graph(4, 4, 4)
-            else:
-                chimera_graph = dnx.chimera_graph(12, 12, 4)
-            embedding = find_embedding(H_sub, chimera_graph)
+            while not embedding:
+                if hops==1:
+                    chimera_graph = dnx.chimera_graph(dim, dim, 4)
+                else:
+                    chimera_graph = dnx.chimera_graph(12, 12, 4)
+                embedding = find_embedding(H_sub, chimera_graph)
+                dim = dim+1
             if not embedding:
-                print("AH!")
+                print("AH! ", dim)
             self.embeddings[node] = embedding
     
     def heat_function(self):
@@ -290,4 +294,5 @@ class GraphEmbEnv(gym.Env):
         # Verifica se tutti i nodi del grafo di input sono stati mappati o se sono finiti i nodi target
         if self.count_steps > len(self.source_graph.nodes()):
             self.invalid_ep = True
+            print("INVALID EP!")
         return (self.get_avg_heat() <= self.target_heat) or (self.count_steps > len(self.source_graph.nodes())) #cambia condizione counter per grafi GRANDI
