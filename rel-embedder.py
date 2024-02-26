@@ -52,6 +52,12 @@ def argument_parser():
         type=str,
         default="2node",
         help="Input graph")
+    
+    CLI.add_argument(
+        "--graph_set",
+        type=str,
+        default="n30c20",
+        help="Input graph set")
 
     CLI.add_argument(
         "--ts",
@@ -117,38 +123,72 @@ def main(name):
     chain2x5_graph2 = nx.Graph([(0, 4), (0, 10), (0, 13), (1, 4), (2, 8), (2, 10), (2, 11), (2, 13), (3, 4), (3, 9), (4, 7), (4, 12), (4, 13), (5, 14), (6, 13), (7, 13), (7, 14), (8, 14), (9, 13)])
     chain2x5_graph3 = nx.Graph([(0, 3), (0, 7), (0, 8), (0, 13), (1, 5), (1, 8), (2, 3), (2, 14), (3, 10), (4, 6), (4, 7), (4, 8), (4, 9), (4, 13), (5, 8), (5, 11), (5, 14), (7, 14), (8, 12), (9, 10), (12, 14)])
 
+    n30c20_graph = nx.Graph([(0, 14), (0, 17), (0, 21), (1, 5), (1, 13), (1, 14), (1, 15), (1, 19), (1, 21), (1, 22), (1, 26), (1, 27), (1, 28), (2, 8), (2, 11), (2, 16), (2, 17), (2, 21), (2, 23), (2, 25), (3, 4), (3, 20), (3, 22), (3, 24), (3, 28), (4, 5), (4, 7), (4, 14), (4, 17), (4, 18), (4, 28), (4, 29), (5, 20), (5, 26), (6, 8), (6, 25), (6, 26), (7, 12), (7, 21), (8, 10), (8, 20), (8, 22), (8, 24), (8, 28), (8, 29), (9, 14), (9, 25), (9, 27), (10, 18), (10, 20), (10, 22), (10, 28), (11, 12), (11, 14), (11, 17), (11, 19), (11, 23), (11, 26), (11, 29), (12, 19), (12, 20), (12, 21), (12, 24), (12, 26), (13, 18), (13, 20), (13, 21), (13, 22), (13, 27), (13, 28), (14, 15), (14, 22), (14, 27), (16, 19), (16, 21), (16, 22), (16, 23), (17, 18), (17, 19), (17, 26), (18, 25), (19, 20), (19, 23), (19, 24), (20, 23), (21, 29), (22, 24), (23, 25), (23, 29), (24, 25), (24, 28), (25, 26), (25, 27)])
+
     chain2x5_training_set = get_graph_dataset("training_set_2nodes_chain.txt")
     chain2x5_validation_set = get_graph_dataset("validation_set_2nodes_chain.txt")
     chain2x5_test_set = get_graph_dataset("test_set_2nodes_chain.txt")
 
+    n30c20_training_set = get_graph_dataset("training_set_n30c20.txt")
+    n30c20_validation_set = get_graph_dataset("validation_set_n30c20.txt")
+    n30c20_test_set = get_graph_dataset("test_set_n30c20.txt")
+
     target_graph=dnx.chimera_graph(15, 15, 4)
-    H = nx.Graph()
+    training_set = None
+    validation_set = None
+    test_set = None
 
     if(launch_params['igraph']=="2node"):
         print("2node")
-        H = two_node_chain_graph.copy()
+        training_set = two_node_chain_graph.copy()
     elif(launch_params['igraph']=="3node"):
         print("3node")
-        H = three_node_chain_graph.copy()
+        training_set = three_node_chain_graph.copy()
     elif(launch_params['igraph']=="2x5"):
         print("2x5")
-        H = chain2x5_graph1.copy()
+        training_set = chain2x5_graph1.copy()
+    elif(launch_params['igraph']=="n30c20"):
+        print("n30c20")
+        training_set = n30c20_graph.copy()
+
+    if(launch_params['graph_set']=="n30c20"):
+        training_set = n30c20_training_set
+        validation_set = n30c20_validation_set
+        test_set = n30c20_test_set
 
     # Creazione degli ambienti
-    env = gee.GraphEmbEnv(H, target_graph, 0.1, launch_params['norm'])
-    env_rnd = gee.GraphEmbEnv(H, target_graph, 0.1, launch_params['norm'])
-    eval_env = gee.GraphEmbEnv(H, target_graph, 0.1, launch_params['norm'])
+    env = gee.GraphEmbEnv(training_set, target_graph, 0.1, launch_params['norm'])
+    env_rnd = gee.GraphEmbEnv(training_set, target_graph, 0.1, launch_params['norm'])
+    eval_env = gee.GraphEmbEnv(validation_set, target_graph, 0.1, launch_params['norm'])
 
     # Wrap env in un VecEnv per parall
     #env = make_vec_env(lambda: env, n_envs=1)
         
     TIMESTEPS = 10
     EVAL_FREQ = 5000
-    SAVE_FREQ = 5000
+    SAVE_FREQ = 10000
 
     if launch_params['train1']:
 
         model = None
+        model_path = os.path.join('Training', 'Saved Models', launch_params['train1'])
+
+        #checkpoint_path = os.path.join(model_path, 
+        checkpoint_on_steps = CheckpointCallback(save_freq=SAVE_FREQ, save_path=model_path, verbose=2)
+        #callback_on_best = StopTrainingOnRewardThreshold(reward_threshold=0.1, verbose=1)
+        stop_no_improv_callback = StopTrainingOnNoModelImprovement(max_no_improvement_evals=5, min_evals=20, verbose=1)
+        eval_callback = EvalCallback(eval_env, eval_freq=EVAL_FREQ, callback_on_new_best=stop_no_improv_callback, verbose=1)
+        global_callback_list = CallbackList([checkpoint_on_steps, eval_callback])
+
+        if launch_params['algo'] == "PPO":
+            model = PPO("MlpPolicy", env, verbose=1, learning_rate=launch_params['lr'], tensorboard_log=log_path)
+            model.learn(total_timesteps=int(1e10), progress_bar=False, callback=global_callback_list, tb_log_name=launch_params['train1'])
+        elif launch_params['algo'] == "DQN": 
+            model = DQN("MlpPolicy", env, verbose=1, learning_rate=launch_params['lr'], gamma=launch_params['gamma'], tensorboard_log=log_path)
+            model.learn(total_timesteps=int(1e10), progress_bar=False, callback=global_callback_list, log_interval=512, tb_log_name=launch_params['train1'])
+        
+
+        """model = None
         model_path = os.path.join('Training', 'Saved Models', launch_params['train1'])
         if launch_params['algo'] == "PPO":
             model = PPO("MlpPolicy", env, verbose=1, learning_rate=launch_params['lr'], tensorboard_log=log_path)
@@ -168,6 +208,7 @@ def main(name):
             model.learn(total_timesteps=int(1e10), progress_bar=False, callback=global_callback_list, tb_log_name=launch_params['train1'])
         elif launch_params['algo'] == "DQN": 
             model.learn(total_timesteps=int(1e10), progress_bar=False, callback=global_callback_list, log_interval=512, tb_log_name=launch_params['train1'])
+        """
 
         """model = None
         model_path = os.path.join('Training', 'Saved Models', launch_params['train1'])
@@ -191,20 +232,20 @@ def main(name):
                     model.save(step_path)
             graph_i = graph_i + 1"""
         
-        """model = None
+        model = None
         if launch_params['algo'] == "PPO":
             model = PPO("MlpPolicy", env, verbose=1, learning_rate=launch_params['lr'], tensorboard_log=log_path)
-            model.learn(total_timesteps=launch_params['ts'], tb_log_name=launch_params['train1'])
+            model.learn(total_timesteps=launch_params['ts'], progress_bar=True, tb_log_name=launch_params['train1'])
                 
         elif launch_params['algo'] == "DQN": 
             model = DQN("MlpPolicy", env, verbose=1, learning_rate=launch_params['lr'], gamma=launch_params['gamma'], tensorboard_log=log_path)
-            model.learn(total_timesteps=launch_params['ts'],  log_interval=512, tb_log_name=launch_params['train1'])
+            model.learn(total_timesteps=launch_params['ts'], progress_bar=True, log_interval=512, tb_log_name=launch_params['train1'])
                 
 
         model_path = os.path.join('Training', 'Saved Models', launch_params['train1'])
 
         # Salvataggio del modello
-        model.save(model_path)"""
+        model.save(model_path)
 
     elif launch_params['train']:
 

@@ -10,11 +10,11 @@ import math
 
 class GraphEmbEnv(gym.Env):
 
-    def __init__(self, source_graph, target_graph, delta_heat, norm):
+    def __init__(self, source_graph_set, target_graph, delta_heat, norm):
         super(GraphEmbEnv, self).__init__()
         
-        self.source_graph = source_graph
-        self.modified_graph = self.source_graph.copy()
+        self.source_graph_set = source_graph_set
+        self.curr_graph = 0
         self.target_graph = target_graph
         self.delta_heat = delta_heat
         self.aux_nodes = {}
@@ -32,6 +32,10 @@ class GraphEmbEnv(gym.Env):
         self.observation_space = spaces.Box(low=0, high=high_obs, shape=(self.max_conn,), dtype=np.float32)
 
         self.action_space = spaces.Discrete(self.max_conn)
+
+        self.curr_graph = (self.curr_graph+1) % len(self.source_graph_set)
+        self.source_graph = self.source_graph_set[self.curr_graph]
+        self.modified_graph = self.source_graph.copy()
 
         self.find_local_embeddings(hops=1)
         self.nodes_heat = self.heat_function()
@@ -99,7 +103,12 @@ class GraphEmbEnv(gym.Env):
         self.invalid_ep = False
         self.count_steps = 0
         self.max_heat = 0
+
+        self.curr_graph = (self.curr_graph+1) % len(self.source_graph_set)
+        self.source_graph = self.source_graph_set[self.curr_graph]
         self.modified_graph = self.source_graph.copy()
+        #print(f"### NOW ON GRAPH {self.curr_graph+1} ###")
+
         self.find_local_embeddings(hops=1)
         self.nodes_heat = self.heat_function()
         self.start_heat = self.get_avg_heat()
@@ -238,7 +247,7 @@ class GraphEmbEnv(gym.Env):
 
     def add_aux_node(self):
         aux_node = len(self.modified_graph.nodes())+1
-        n_priority_node_neighbors = len(self.modified_graph.neighbors(self.priority_node))
+        n_priority_node_neighbors = len(list(self.modified_graph.neighbors(self.priority_node)))
         n_aux_nodes_neighbors = len(self.aux_nodes[self.priority_node]) if self.priority_node in self.aux_nodes else 0
         n_og_nodes_neighbors = n_priority_node_neighbors - n_aux_nodes_neighbors
         
