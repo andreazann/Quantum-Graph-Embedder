@@ -238,8 +238,23 @@ class GraphEmbEnv(gym.Env):
 
     def add_aux_node(self):
         aux_node = len(self.modified_graph.nodes())+1
+        n_priority_node_neighbors = len(self.modified_graph.neighbors(self.priority_node))
+        n_aux_nodes_neighbors = len(self.aux_nodes[self.priority_node]) if self.priority_node in self.aux_nodes else 0
+        n_og_nodes_neighbors = n_priority_node_neighbors - n_aux_nodes_neighbors
+        
         self.modified_graph.add_node(aux_node)
-        self.modified_graph.add_edge(self.priority_node, aux_node)
+
+        #if n of aux nodes is smaller than the original neighbors left of the priority node / 2 than
+        #add an aux node directly to the priority node, else add it to the aux node with lower heat
+        if(n_aux_nodes_neighbors < math.ceil(n_og_nodes_neighbors/2)):
+            self.modified_graph.add_edge(self.priority_node, aux_node)
+        else:
+            local_aux_nodes = self.aux_nodes[self.priority_node]
+            min_heat = 1 if self.norm else 1000
+            min_heat_node = -1
+            for node in local_aux_nodes:
+                min_heat, min_heat_node = (self.nodes_heat[node], node) if self.nodes_heat[node] < min_heat else (min_heat, min_heat_node)
+            self.modified_graph.add_edge(min_heat_node, aux_node)
         if(self.priority_node in self.aux_nodes):
             self.aux_nodes[self.priority_node].update(set([aux_node]))
         else:
