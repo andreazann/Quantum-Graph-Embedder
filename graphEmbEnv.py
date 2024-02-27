@@ -10,7 +10,7 @@ import math
 
 class GraphEmbEnv(gym.Env):
 
-    def __init__(self, source_graph_set, target_graph, delta_heat, norm):
+    def __init__(self, source_graph_set, target_graph, delta_heat, norm, avg_heat_mode):
         super(GraphEmbEnv, self).__init__()
         
         self.source_graph_set = source_graph_set
@@ -21,6 +21,7 @@ class GraphEmbEnv(gym.Env):
         self.embeddings = {}
         self.nodes_heat = {}
         self.norm = norm
+        self.avg_heat_mode = avg_heat_mode
         self.max_heat = 0
         self.priority_list = []
         self.priority_node = None
@@ -280,9 +281,19 @@ class GraphEmbEnv(gym.Env):
 
     def get_avg_heat(self):
         avg_heat = 0
-        for node in self.nodes_heat:
-            avg_heat = avg_heat + self.nodes_heat[node]
-        return avg_heat/len(self.nodes_heat)
+        if(self.avg_heat_mode=="aux"):
+            for node in self.nodes_heat:
+                avg_heat = avg_heat + self.nodes_heat[node]
+            return avg_heat/len(self.nodes_heat)
+        elif(self.avg_heat_mode=="no_aux"): 
+            aux_to_remove = set().union(*self.aux_nodes.values())
+            tot_nodes = 0
+            for node in self.nodes_heat:
+                if node not in aux_to_remove:
+                    avg_heat = avg_heat + self.nodes_heat[node]
+                    tot_nodes = tot_nodes + 1
+            return avg_heat/tot_nodes
+        return -1
 
     #così scala in base all'avg_heat, prova anche versione fissa, avg_heat-delta_heat
     def get_target_heat(self):

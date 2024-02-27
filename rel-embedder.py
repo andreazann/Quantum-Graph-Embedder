@@ -84,6 +84,18 @@ def argument_parser():
         help="Normalize heat")
     
     CLI.add_argument(
+        "--avg_heat",
+        type=str,
+        default="aux",
+        help="Include aux nodes in avg_heat")
+    
+    CLI.add_argument(
+        "--ep_perc",
+        type=float,
+        default=0.1,
+        help="Percentage to decrease avg_heat to end episode")
+    
+    CLI.add_argument(
         "--subrun",
         type=int,
         default=1,
@@ -144,6 +156,9 @@ def main(name):
     validation_set = None
     test_set = None
 
+    print("norm ", launch_params['norm'])
+    print("avg ", launch_params['avg_heat'])
+
     if(launch_params['igraph']=="2node"):
         print("2node")
         training_set = [two_node_chain_graph.copy()]
@@ -167,6 +182,7 @@ def main(name):
     #env = make_vec_env(lambda: env, n_envs=1)
         
     n_subrun = launch_params['subrun']
+    ep_perc = launch_params['ep_perc']
         
     TIMESTEPS = 10
     EVAL_FREQ = 5000
@@ -175,8 +191,8 @@ def main(name):
     if launch_params['train1']:
 
         # Creazione degli ambienti
-        env = gee.GraphEmbEnv(training_set, target_graph, 0.1, launch_params['norm'])
-        eval_env = gee.GraphEmbEnv(validation_set, target_graph, 0.1, launch_params['norm'])
+        env = gee.GraphEmbEnv(training_set, target_graph, ep_perc, launch_params['norm'], launch_params['avg_heat'])
+        eval_env = gee.GraphEmbEnv(validation_set, target_graph, ep_perc, launch_params['norm'], launch_params['avg_heat'])
 
         model = None
         model_name_clean = launch_params['train1']
@@ -263,8 +279,8 @@ def main(name):
 
     elif launch_params['train']:
 
-        env = gee.GraphEmbEnv(training_set, target_graph, 0.1, launch_params['norm'])
-        eval_env = gee.GraphEmbEnv(validation_set, target_graph, 0.1, launch_params['norm'])
+        env = gee.GraphEmbEnv(training_set, target_graph, ep_perc, launch_params['norm'], launch_params['avg_heat'])
+        eval_env = gee.GraphEmbEnv(validation_set, target_graph, ep_perc, launch_params['norm'], launch_params['avg_heat'])
 
         model_path = os.path.join('Training', 'Saved Models', launch_params['train'])
 
@@ -287,8 +303,8 @@ def main(name):
 
     elif launch_params['test']:
 
-        env = gee.GraphEmbEnv(test_set, target_graph, 0.1, launch_params['norm'])
-        env_rnd = gee.GraphEmbEnv(test_set, target_graph, 0.1, launch_params['norm'])
+        env = gee.GraphEmbEnv(test_set, target_graph, ep_perc, launch_params['norm'], launch_params['avg_heat'])
+        env_rnd = gee.GraphEmbEnv(test_set, target_graph, ep_perc, launch_params['norm'], launch_params['avg_heat'])
 
         model_path = None
 
