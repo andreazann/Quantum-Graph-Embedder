@@ -62,7 +62,7 @@ def argument_parser():
     CLI.add_argument(
         "--ts",
         type=int,
-        default=None,
+        default=100000,
         help="Timesteps")
     
     CLI.add_argument(
@@ -148,6 +148,7 @@ def main(name):
     chain2x5_test_set = get_graph_dataset("test_set_2nodes_chain.txt")
 
     n30c20_training_set = get_graph_dataset("training_set_n30c20.txt")
+    n30c20x20_training_set = get_graph_dataset("training_set_n30c20x20.txt")
     n30c20_validation_set = get_graph_dataset("validation_set_n30c20.txt")
     n30c20_test_set = get_graph_dataset("test_set_n30c20.txt")
 
@@ -175,6 +176,11 @@ def main(name):
     if(launch_params['graph_set']=="n30c20"):
         print("n30c20 set")
         training_set = n30c20_training_set
+        validation_set = n30c20_validation_set
+        test_set = n30c20_test_set
+    if(launch_params['graph_set']=="n30c20x20"):
+        print("n30c20x20 set")
+        training_set = n30c20x20_training_set
         validation_set = n30c20_validation_set
         test_set = n30c20_test_set
 
@@ -303,8 +309,8 @@ def main(name):
 
     elif launch_params['test']:
 
-        env = gee.GraphEmbEnv(test_set, target_graph, ep_perc, launch_params['norm'], launch_params['avg_heat'])
-        env_rnd = gee.GraphEmbEnv(test_set, target_graph, ep_perc, launch_params['norm'], launch_params['avg_heat'])
+        env = gee.GraphEmbEnv([test_set[0]], target_graph, ep_perc, launch_params['norm'], launch_params['avg_heat'])
+        env_rnd = gee.GraphEmbEnv([test_set[0]], target_graph, ep_perc, launch_params['norm'], launch_params['avg_heat'])
 
         model_path = None
 
@@ -329,122 +335,163 @@ def main(name):
         date_time_fld_path = os.path.join("Testing", date_time+launch_params['test'])
         os.makedirs(date_time_fld_path, exist_ok=True)
 
-        rel_i = 0
-        rel_ep_len_m = 0
-        rel_rew_m = 0
-        rel_total_qubits_m = 0
+        tot_rel_i = 0
+        tot_rel_ep_len_m = 0
+        tot_rel_rew_m = 0
+        tot_rel_total_qubits_m = 0
     
-        rnd_i = 0
-        rnd_ep_len_m = 0
-        rnd_rew_m = 0
-        rnd_total_qubits_m = 0
+        tot_rnd_i = 0
+        tot_rnd_ep_len_m = 0
+        tot_rnd_rew_m = 0
+        tot_rnd_total_qubits_m = 0
 
-        true_total_qubits_m = 0
+        tot_true_graph_qubits_m = 0
 
+        curr_graph = 0
         total_action_freq = {}
         init_action_freq(total_action_freq)
 
-        for episode in range(1, episodes+1):
-            obs, _info = env.reset()
-            n_state, _info_rnd = env_rnd.reset()
-            terminated = False
-            terminated_rnd = False
-            score = 0
-            score_rnd = 0
-            ts = 0
-            ts_rnd = 0
-            info = {}
-            total_info = {}
-            info_rnd = {}
-            total_info_rnd = {}
-            action_freq = {}
-            
-            episode_fld = os.path.join(date_time_fld_path, f"Episode {episode}")
-            os.makedirs(episode_fld, exist_ok=True)
-            total_info[0] = _info.copy()
-            #print("START NODES HEAT ", total_info[0]['nodes_heat'])
-            total_info_rnd[0] = _info_rnd.copy()
-            init_action_freq(action_freq)
+        for graph in test_set:
 
-            
-            while not terminated:
-                action, _state = model.predict(obs)
-                obs, reward, terminated, truncated, info = env.step(action)
-                score+=reward
-                ts = ts+1
-                total_info[ts] = info.copy()
-                print("TS ", ts)
-                #print_selected(info)
-                register_action_freq(total_action_freq, action_freq, obs, action)
-                if(terminated and (not info['invalid_ep'])):
-                    rel_ep_len_m = rel_ep_len_m + ts
-                    rel_rew_m = rel_rew_m + reward
-                    rel_i = rel_i + 1
-            print('ReL\n\nEpisode:{} Score:{} Total timesteps:{}'.format(episode, score, ts))
+            graph_fld = os.path.join(date_time_fld_path, f"Graph {curr_graph+1}")
+            env.update_source_graph_set([graph])
 
-            print("REL EMBEDDING {}\n".format(info['modified_graph'].edges()))
+            rel_i = 0
+            rel_ep_len_m = 0
+            rel_rew_m = 0
+            rel_total_qubits_m = 0
+        
+            rnd_i = 0
+            rnd_ep_len_m = 0
+            rnd_rew_m = 0
+            rnd_total_qubits_m = 0
 
-            while not terminated_rnd:
-                #action, _state = env_rnd.action_space.sample()
-                #print("STATE ", n_state.tolist())
-                action = np.array(random.randint(0, get_n_valid_actions(n_state.tolist().copy())))
-                n_state, reward, terminated_rnd, truncated, info_rnd = env_rnd.step(action)
-                score_rnd+=reward
-                ts_rnd=ts_rnd+1
-                total_info_rnd[ts_rnd] = info_rnd.copy()
-                if(terminated_rnd and (not info_rnd['invalid_ep'])):
-                    rnd_ep_len_m = rnd_ep_len_m + ts_rnd
-                    rnd_rew_m = rnd_rew_m + reward
-                    rnd_i = rnd_i + 1
-            print('Rnd\n\nEpisode:{} Score:{} Total timesteps:{}'.format(episode, score_rnd, ts_rnd))
+            true_graph_qubits_m = 0
 
-            dim = 3
-            G = None
-            embedding_rel = None
-            
-            while not embedding_rel:
-                G=dnx.chimera_graph(dim, dim, 4) 
-                embedding_rel = find_embedding(info['modified_graph'], G)
-                dim = dim+1
+            graph_action_freq = {}
+            init_action_freq(graph_action_freq)
 
-            print("EMBEDDED REL {}\n\nFINE EP\n\n".format(embedding_rel))
-            embedding_rel_comp = recompose_emb(embedding_rel, info['aux_nodes'])
-            #save_figs(H, G, embedding_rel, embedding_rel_comp)
+            for episode in range(1, episodes+1):
+                obs, _info = env.reset()
+                n_state, _info_rnd = env_rnd.reset()
+                terminated = False
+                terminated_rnd = False
+                score = 0
+                score_rnd = 0
+                ts = 0
+                ts_rnd = 0
+                info = {}
+                total_info = {}
+                info_rnd = {}
+                total_info_rnd = {}
+                action_freq = {}
+                
+                episode_fld = os.path.join(graph_fld, f"Episode {episode}")
+                os.makedirs(episode_fld, exist_ok=True)
+                total_info[0] = _info.copy()
+                #print("START NODES HEAT ", total_info[0]['nodes_heat'])
+                total_info_rnd[0] = _info_rnd.copy()
+                init_action_freq(action_freq)
 
-            embedding_rnd=find_embedding(info_rnd['modified_graph'], G)
-            while not embedding_rnd:
-                G=dnx.chimera_graph(dim, dim, 4) 
-                embedding_rnd = find_embedding(info_rnd['modified_graph'], G)
-                dim = dim+1
-            embedding_rnd_comp = recompose_emb(embedding_rnd, info_rnd['aux_nodes'])
-            #save_figs(H, G, embedding_rnd, embedding_rnd_comp)
+                
+                while not terminated:
+                    action, _state = model.predict(obs)
+                    obs, reward, terminated, truncated, info = env.step(action)
+                    score+=reward
+                    ts = ts+1
+                    total_info[ts] = info.copy()
+                    print("TS ", ts)
+                    #print_selected(info)
+                    register_action_freq(graph_action_freq, action_freq, obs, action)
+                    if(terminated and (not info['invalid_ep'])):
+                        rel_ep_len_m = rel_ep_len_m + ts
+                        rel_rew_m = rel_rew_m + score
+                        rel_i = rel_i + 1
+                    #print("reward rel ", reward)
+                print('ReL\n\nEpisode:{} Score:{} Total timesteps:{}'.format(episode, score, ts))
 
-            if(not info['invalid_ep']):
-                ep_total_qubits = sum(len(l) for l in embedding_rel_comp.values())
-                rel_total_qubits_m = rel_total_qubits_m + ep_total_qubits
+                print("REL EMBEDDING {}\n".format(info['modified_graph'].edges()))
 
-            if(not info_rnd['invalid_ep']):
-                ep_total_qubits = sum(len(l) for l in embedding_rnd_comp.values())
-                rnd_total_qubits_m = rnd_total_qubits_m + ep_total_qubits
+                while not terminated_rnd:
+                    #action, _state = env_rnd.action_space.sample()
+                    #print("STATE ", n_state.tolist())
+                    action = np.array(random.randint(0, get_n_valid_actions(n_state.tolist().copy())))
+                    n_state, reward, terminated_rnd, truncated, info_rnd = env_rnd.step(action)
+                    score_rnd+=reward
+                    ts_rnd=ts_rnd+1
+                    total_info_rnd[ts_rnd] = info_rnd.copy()
+                    if(terminated_rnd and (not info_rnd['invalid_ep'])):
+                        rnd_ep_len_m = rnd_ep_len_m + ts_rnd
+                        rnd_rew_m = rnd_rew_m + score_rnd
+                        rnd_i = rnd_i + 1
+                    #print("reward rnd", reward)
+                print('Rnd\n\nEpisode:{} Score:{} Total timesteps:{}'.format(episode, score_rnd, ts_rnd))
 
-            print(f"### TRUE GRAPH {episode+1} ###")
-            
-            H = test_set[(episode+1) % len(test_set)]
+                dim = 3
+                G = None
+                embedding_rel = None
+                
+                while not embedding_rel:
+                    G=dnx.chimera_graph(dim, dim, 4) 
+                    embedding_rel = find_embedding(info['modified_graph'], G)
+                    dim = dim+1
 
-            embedding_true=find_embedding(H, G)
-            while not embedding_true:
-                G=dnx.chimera_graph(dim, dim, 4) 
+                print("EMBEDDED REL {}\n\nFINE EP\n\n".format(embedding_rel))
+                embedding_rel_comp = recompose_emb(embedding_rel, info['aux_nodes'])
+                #save_figs(H, G, embedding_rel, embedding_rel_comp)
+
+                embedding_rnd=find_embedding(info_rnd['modified_graph'], G)
+                while not embedding_rnd:
+                    G=dnx.chimera_graph(dim, dim, 4) 
+                    embedding_rnd = find_embedding(info_rnd['modified_graph'], G)
+                    dim = dim+1
+                embedding_rnd_comp = recompose_emb(embedding_rnd, info_rnd['aux_nodes'])
+                #save_figs(H, G, embedding_rnd, embedding_rnd_comp)
+
+                if(not info['invalid_ep']):
+                    ep_total_qubits = sum(len(l) for l in embedding_rel_comp.values())
+                    rel_total_qubits_m = rel_total_qubits_m + ep_total_qubits
+
+                if(not info_rnd['invalid_ep']):
+                    ep_total_qubits = sum(len(l) for l in embedding_rnd_comp.values())
+                    rnd_total_qubits_m = rnd_total_qubits_m + ep_total_qubits
+
+                print(f"### TRUE GRAPH {curr_graph} ###")
+                
+                H = graph
+
                 embedding_true=find_embedding(H, G)
-                dim = dim+1
+                while not embedding_true:
+                    G=dnx.chimera_graph(dim, dim, 4) 
+                    embedding_true=find_embedding(H, G)
+                    dim = dim+1
 
-            ep_total_qubits = sum(len(l) for l in embedding_true.values())
-            true_total_qubits_m = true_total_qubits_m + ep_total_qubits
+                ep_total_qubits = sum(len(l) for l in embedding_true.values())
+                true_graph_qubits_m = true_graph_qubits_m + ep_total_qubits
 
-            episode_log(episode, total_info, total_info_rnd, score, score_rnd, action_freq, info['modified_graph'], embedding_rel, embedding_rel_comp, embedding_rnd, embedding_rnd_comp, embedding_true, ts, ts_rnd, episode_fld)
-            save_figs(H, G, embedding_rel, embedding_rel_comp, embedding_rnd, embedding_rnd_comp, embedding_true, episode_fld)
+                episode_log(episode, total_info, total_info_rnd, score, score_rnd, action_freq, info['modified_graph'], embedding_rel, embedding_rel_comp, embedding_rnd, embedding_rnd_comp, embedding_true, ts, ts_rnd, episode_fld)
+                save_figs(H, G, embedding_rel, embedding_rel_comp, embedding_rnd, embedding_rnd_comp, embedding_true, episode_fld)
 
-        total_test_log(date_time_fld_path, rel_ep_len_m/rel_i, rel_rew_m/rel_i, rel_total_qubits_m/rel_i, rnd_ep_len_m/rnd_i, rnd_rew_m/rnd_i, rnd_total_qubits_m/rnd_i, true_total_qubits_m/episodes, total_action_freq)
+            total_test_log(graph_fld, rel_ep_len_m/rel_i, rel_rew_m/rel_i, rel_total_qubits_m/rel_i, rnd_ep_len_m/rnd_i, rnd_rew_m/rnd_i, rnd_total_qubits_m/rnd_i, true_graph_qubits_m/episodes, graph_action_freq)
 
+            curr_graph = curr_graph + 1
+
+            tot_rel_i += rel_i
+            tot_rel_ep_len_m += rel_ep_len_m
+            tot_rel_rew_m += rel_rew_m
+            tot_rel_total_qubits_m += rel_total_qubits_m
+        
+            tot_rnd_i += rnd_i
+            tot_rnd_ep_len_m += rnd_ep_len_m
+            tot_rnd_rew_m += rnd_rew_m
+            tot_rnd_total_qubits_m += rnd_total_qubits_m
+
+            tot_true_graph_qubits_m += true_graph_qubits_m
+
+            register_total_action_freq(total_action_freq, graph_action_freq)
+
+        total_test_log(date_time_fld_path, tot_rel_ep_len_m/tot_rel_i, tot_rel_rew_m/tot_rel_i, tot_rel_total_qubits_m/tot_rel_i, tot_rnd_ep_len_m/tot_rnd_i, tot_rnd_rew_m/tot_rnd_i, tot_rnd_total_qubits_m/tot_rnd_i, tot_true_graph_qubits_m/(len(test_set)*episodes), total_action_freq)
+    
     env.close()
 
 def episode_log(episode, total_info, total_info_rnd, score, score_rnd, action_freq, rel_graph, embedding_rel, embedding_rel_comp, embedding_rnd, embedding_rnd_comp, embedding_true, ts, ts_rnd, episode_fld):
@@ -472,11 +519,14 @@ def episode_log(episode, total_info, total_info_rnd, score, score_rnd, action_fr
     with open(file_path, 'w') as file:
         file.write(file_content)
 
-def total_test_log(date_time_fld_path, rel_ep_len_m, rel_rew_m, rel_total_qubits_m, rnd_ep_len_m, rnd_rew_m, rnd_total_qubits_m, true_total_qubits_m, total_action_freq):
+def total_test_log(log_fld, rel_ep_len_m, rel_rew_m, rel_total_qubits_m, rnd_ep_len_m, rnd_rew_m, rnd_total_qubits_m, true_total_qubits_m, total_action_freq):
 
-    testing_log_path = os.path.join(date_time_fld_path, "test_info.txt")
+    testing_log_path = os.path.join(log_fld, "cumulative_info.txt")
 
-    file_content = f"RL\n\nep_len_mean: {rel_ep_len_m}\nrew_mean: {rel_rew_m}\nep_qubits_mean: {rel_total_qubits_m}\n\nRND\n\nep_len_mean: {rnd_ep_len_m}\nrew_mean: {rnd_rew_m}\nep_qubits_mean: {rnd_total_qubits_m}\n\nTRUE EMBEDDING\n\nep_qubits_mean: {true_total_qubits_m}\n\nActions frequency: {total_action_freq}"
+    improv_perc = "+"+str(((rel_total_qubits_m-true_total_qubits_m)/true_total_qubits_m)*100) if rel_total_qubits_m > true_total_qubits_m else "-"+str(((true_total_qubits_m-rel_total_qubits_m)/rel_total_qubits_m)*100)
+    improv_perc = improv_perc[0:5]+"%"
+
+    file_content = f"RL\n\nep_len_mean: {rel_ep_len_m}\nrew_mean: {rel_rew_m}\nep_qubits_mean: {rel_total_qubits_m}\n\nRND\n\nep_len_mean: {rnd_ep_len_m}\nrew_mean: {rnd_rew_m}\nep_qubits_mean: {rnd_total_qubits_m}\n\nTRUE EMBEDDING\n\nep_qubits_mean: {true_total_qubits_m}\n\nActions frequency: {total_action_freq}\n\nRESULT:\n\n{improv_perc} qubits used"
 
     with open(testing_log_path, 'w') as file:
         file.write(file_content)
@@ -503,14 +553,18 @@ def init_action_freq(action_freq):
     for i in range(-1, 10):
         action_freq[i] = 0
 
-def register_action_freq(total_action_freq, action_freq, obs, action):
+def register_total_action_freq(total_action_freq, graph_action_freq):
+    for k, v in total_action_freq.items():
+        total_action_freq[k] += graph_action_freq[k]
+
+def register_action_freq(graph_action_freq, ep_action_freq, obs, action):
     n_valid_actions = get_n_valid_actions(obs.tolist().copy())
     if(action.item() < n_valid_actions):
-        action_freq[action.item()] = action_freq[action.item()] + 1
-        total_action_freq[action.item()] = total_action_freq[action.item()] + 1
+        ep_action_freq[action.item()] = ep_action_freq[action.item()] + 1
+        graph_action_freq[action.item()] = graph_action_freq[action.item()] + 1
     else:
-        action_freq[-1] = action_freq[-1] + 1
-        total_action_freq[-1] = total_action_freq[-1] + 1
+        ep_action_freq[-1] = ep_action_freq[-1] + 1
+        graph_action_freq[-1] = graph_action_freq[-1] + 1
 
 def get_graph_dataset(dataset_file_name):
     graphs_list = []
