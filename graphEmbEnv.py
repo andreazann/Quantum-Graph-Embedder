@@ -107,7 +107,7 @@ class GraphEmbEnv(gym.Env):
         self.curr_graph = (self.curr_graph+1) % len(self.source_graph_set)
         self.source_graph = self.source_graph_set[self.curr_graph]
         self.modified_graph = self.source_graph.copy()
-        #print(f"### NOW ON GRAPH {self.curr_graph+1} ###")
+        #print(f"### NOW ON GRAPH {self.curr_graph} ###")
 
         self.find_local_embeddings(hops=1)
         self.nodes_heat = self.heat_function()
