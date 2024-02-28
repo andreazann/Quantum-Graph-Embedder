@@ -254,7 +254,7 @@ def main(name):
                 model.learn(total_timesteps=launch_params['ts'], progress_bar=True, callback=global_callback_list, tb_log_name=model_name)
             elif launch_params['algo'] == "DQN": 
                 model = DQN("MlpPolicy", env, verbose=1, learning_rate=launch_params['lr'], gamma=launch_params['gamma'], tensorboard_log=log_path)
-                model.learn(total_timesteps=int(1e10), progress_bar=False, callback=global_callback_list, log_interval=512, tb_log_name=model_name)
+                model.learn(total_timesteps=launch_params['ts'], progress_bar=True, callback=global_callback_list, log_interval=512, tb_log_name=model_name)
             
 
             """model = None
