@@ -143,14 +143,20 @@ def main(name):
 
     n30c20_graph = nx.Graph([(0, 14), (0, 17), (0, 21), (1, 5), (1, 13), (1, 14), (1, 15), (1, 19), (1, 21), (1, 22), (1, 26), (1, 27), (1, 28), (2, 8), (2, 11), (2, 16), (2, 17), (2, 21), (2, 23), (2, 25), (3, 4), (3, 20), (3, 22), (3, 24), (3, 28), (4, 5), (4, 7), (4, 14), (4, 17), (4, 18), (4, 28), (4, 29), (5, 20), (5, 26), (6, 8), (6, 25), (6, 26), (7, 12), (7, 21), (8, 10), (8, 20), (8, 22), (8, 24), (8, 28), (8, 29), (9, 14), (9, 25), (9, 27), (10, 18), (10, 20), (10, 22), (10, 28), (11, 12), (11, 14), (11, 17), (11, 19), (11, 23), (11, 26), (11, 29), (12, 19), (12, 20), (12, 21), (12, 24), (12, 26), (13, 18), (13, 20), (13, 21), (13, 22), (13, 27), (13, 28), (14, 15), (14, 22), (14, 27), (16, 19), (16, 21), (16, 22), (16, 23), (17, 18), (17, 19), (17, 26), (18, 25), (19, 20), (19, 23), (19, 24), (20, 23), (21, 29), (22, 24), (23, 25), (23, 29), (24, 25), (24, 28), (25, 26), (25, 27)])
 
-    chain2x5_training_set = get_graph_dataset("training_set_2nodes_chain.txt")
-    chain2x5_validation_set = get_graph_dataset("validation_set_2nodes_chain.txt")
-    chain2x5_test_set = get_graph_dataset("test_set_2nodes_chain.txt")
+    chain2x5_training_set = get_graph_dataset("2node_chain", "training_set_2nodes_chain.txt")
+    chain2x5_validation_set = get_graph_dataset("2node_chain", "validation_set_2nodes_chain.txt")
+    chain2x5_test_set = get_graph_dataset("2node_chain", "test_set_2nodes_chain.txt")
 
-    n30c20_training_set = get_graph_dataset("training_set_n30c20.txt")
-    n30c20x20_training_set = get_graph_dataset("training_set_n30c20x20.txt")
-    n30c20_validation_set = get_graph_dataset("validation_set_n30c20.txt")
-    n30c20_test_set = get_graph_dataset("test_set_n30c20.txt")
+    n30c20_training_set = get_graph_dataset("n30c20", "training_set_n30c20x5.txt")
+    n30c20x10_training_set = get_graph_dataset("n30c20", "training_set_n30c20x10.txt")
+    n30c20x20_training_set = get_graph_dataset("n30c20", "training_set_n30c20x20.txt")
+    n30c20_validation_set = get_graph_dataset("n30c20", "validation_set_n30c20.txt")
+    n30c20_test_set = get_graph_dataset("n30c20", "test_set_n30c20.txt")
+
+    n50c20x10_training_set = get_graph_dataset("n50c20", "training_set_n50c20x10.txt")
+    n50c20x20_training_set = get_graph_dataset("n50c20", "training_set_n50c20x20.txt")
+    n50c20x5_validation_set = get_graph_dataset("n50c20", "validation_set_n50c20x5.txt")
+    n50c20x10_test_set = get_graph_dataset("n50c20", "test_set_n50c20x10.txt")
 
     target_graph=dnx.chimera_graph(15, 15, 4)
     training_set = None
@@ -178,11 +184,26 @@ def main(name):
         training_set = n30c20_training_set
         validation_set = n30c20_validation_set
         test_set = n30c20_test_set
-    if(launch_params['graph_set']=="n30c20x20"):
+    elif(launch_params['graph_set']=="n30c20x20"):
         print("n30c20x20 set")
         training_set = n30c20x20_training_set
         validation_set = n30c20_validation_set
         test_set = n30c20_test_set
+    elif(launch_params['graph_set']=="n30c20x10"):
+        print("n30c20x10 set")
+        training_set = n30c20x10_training_set
+        validation_set = n30c20_validation_set
+        test_set = n30c20_test_set
+    elif(launch_params['graph_set']=="n50c20x20"):
+        print("n50c20x20 set")
+        training_set = n50c20x20_training_set
+        validation_set = n50c20x5_validation_set
+        test_set = n50c20x10_test_set
+    elif(launch_params['graph_set']=="n50c20x10"):
+        print("n50c20x10 set")
+        training_set = n50c20x10_training_set
+        validation_set = n50c20x5_validation_set
+        test_set = n50c20x10_test_set
 
     # Wrap env in un VecEnv per parall
     #env = make_vec_env(lambda: env, n_envs=1)
@@ -427,7 +448,7 @@ def main(name):
                     #print("reward rnd", reward)
                 print('Rnd\n\nEpisode:{} Score:{} Total timesteps:{}'.format(episode, score_rnd, ts_rnd))
 
-                dim = 3
+                dim = 4
                 G = None
                 embedding_rel = None
                 
@@ -566,9 +587,9 @@ def register_action_freq(graph_action_freq, ep_action_freq, obs, action):
         ep_action_freq[-1] = ep_action_freq[-1] + 1
         graph_action_freq[-1] = graph_action_freq[-1] + 1
 
-def get_graph_dataset(dataset_file_name):
+def get_graph_dataset(dataset_folder, dataset_file_name):
     graphs_list = []
-    dataset_path = os.path.join("GraphDatasets", dataset_file_name)
+    dataset_path = os.path.join("GraphDatasets", dataset_folder, dataset_file_name)
     with open(dataset_path, 'r') as file:
         for line in file:
             edges = ast.literal_eval(line.strip())
