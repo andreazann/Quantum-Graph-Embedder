@@ -70,6 +70,12 @@ def argument_parser():
         type=float,
         default=0.0003,
         help="Learning rate")
+        
+    CLI.add_argument(
+        "--ent_coef",
+        type=float,
+        default=0.0,
+        help="Entropy coefficient")
     
     CLI.add_argument(
         "--gamma",
@@ -244,7 +250,7 @@ def main(name):
             global_callback_list = CallbackList([checkpoint_on_steps, eval_callback])
 
             if launch_params['algo'] == "PPO":
-                model = PPO("MlpPolicy", env, verbose=1, learning_rate=launch_params['lr'], tensorboard_log=log_path)
+                model = PPO("MlpPolicy", env, verbose=1, learning_rate=launch_params['lr'], ent_coef=launch_params['ent_coef'], tensorboard_log=log_path)
                 model.learn(total_timesteps=launch_params['ts'], progress_bar=True, callback=global_callback_list, tb_log_name=model_name)
             elif launch_params['algo'] == "DQN": 
                 model = DQN("MlpPolicy", env, verbose=1, learning_rate=launch_params['lr'], gamma=launch_params['gamma'], tensorboard_log=log_path)
