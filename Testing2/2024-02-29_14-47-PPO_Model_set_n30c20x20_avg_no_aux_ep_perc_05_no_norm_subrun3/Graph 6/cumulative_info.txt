@@ -1,0 +1,21 @@
+RL
+
+ep_len_mean: 5.3
+rew_mean: 0.065868618674536
+ep_qubits_mean: 117.9
+
+RND
+
+ep_len_mean: 4.5
+rew_mean: -0.34532066073018186
+ep_qubits_mean: 121.8
+
+TRUE EMBEDDING
+
+ep_qubits_mean: 115.2
+
+Actions frequency: {-1: 0, 0: 2, 1: 3, 2: 1, 3: 2, 4: 37, 5: 1, 6: 1, 7: 0, 8: 6, 9: 0}
+
+RESULT:
+
++2.34% qubits used
