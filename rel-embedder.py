@@ -16,8 +16,8 @@ import ast
 
 sys.path.append(os.path.abspath('/Env'))
 
-import graphEmbEnv as gee
-#import graphEmbEnvRndPriorityNode as gee
+#import graphEmbEnv as gee
+import graphEmbEnvRndPriorityNode as gee
 #import graphEmbEnvRndAuxNode as gee
 from updateEnvCallback import UpdateEnvCallback
 
@@ -480,7 +480,7 @@ def main(name):
                         print("TS ", ts)
                         #print_selected(info)
                         register_action_freq(graph_action_freq, action_freq, obs, action)
-                        if(terminated and (not info['invalid_ep'])):
+                        if(terminated):
                             rel_ep_len_m = rel_ep_len_m + ts
                             rel_rew_m = rel_rew_m + score
                             rel_i = rel_i + 1
@@ -497,7 +497,7 @@ def main(name):
                         score_rnd+=reward
                         ts_rnd=ts_rnd+1
                         total_info_rnd[ts_rnd] = info_rnd.copy()
-                        if(terminated_rnd and (not info_rnd['invalid_ep'])):
+                        if(terminated_rnd):
                             rnd_ep_len_m = rnd_ep_len_m + ts_rnd
                             rnd_rew_m = rnd_rew_m + score_rnd
                             rnd_i = rnd_i + 1
@@ -513,7 +513,7 @@ def main(name):
                             score_best+=reward
                             ts_best=ts_best+1
                             total_info_best[ts_best] = info_best.copy()
-                            if(terminated_best and (not info_best['invalid_ep'])):
+                            if(terminated_best):
                                 best_ep_len_m = best_ep_len_m + ts_best
                                 best_rew_m = best_rew_m + score_best
                                 best_i = best_i + 1
@@ -552,17 +552,14 @@ def main(name):
                         embedding_best_comp = recompose_emb(embedding_best, info_best['aux_nodes'])
                         #save_figs(H, G, embedding_rnd, embedding_rnd_comp)
 
-                    if(not info['invalid_ep']):
-                        ep_total_qubits = sum(len(l) for l in embedding_rel_comp.values())
-                        rel_total_qubits_m = rel_total_qubits_m + ep_total_qubits
+                    ep_total_qubits = sum(len(l) for l in embedding_rel_comp.values())
+                    rel_total_qubits_m = rel_total_qubits_m + ep_total_qubits
 
-                    if(not info_rnd['invalid_ep']):
-                        ep_total_qubits = sum(len(l) for l in embedding_rnd_comp.values())
-                        rnd_total_qubits_m = rnd_total_qubits_m + ep_total_qubits
+                    ep_total_qubits = sum(len(l) for l in embedding_rnd_comp.values())
+                    rnd_total_qubits_m = rnd_total_qubits_m + ep_total_qubits
 
-                    if(not info_best['invalid_ep'] and best_act_active):
-                        ep_total_qubits = sum(len(l) for l in embedding_best_comp.values())
-                        best_total_qubits_m = best_total_qubits_m + ep_total_qubits
+                    ep_total_qubits = sum(len(l) for l in embedding_best_comp.values())
+                    best_total_qubits_m = best_total_qubits_m + ep_total_qubits
 
                     print(f"### TRUE GRAPH {curr_graph} ###")
                     
