@@ -17,8 +17,8 @@ import ast
 sys.path.append(os.path.abspath('/Env'))
 
 #import graphEmbEnv as gee
-import graphEmbEnvRndPriorityNode as gee
-#import graphEmbEnvRndAuxNode as gee
+#import graphEmbEnvRndPriorityNode as gee
+import graphEmbEnvRndAuxNode as gee
 from updateEnvCallback import UpdateEnvCallback
 
 
