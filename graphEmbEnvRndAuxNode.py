@@ -243,7 +243,7 @@ class GraphEmbEnv(gym.Env):
             min_heat_node = -1
             for node in local_aux_nodes:
                 if self.nodes_heat[node] < self.target_heat:
-                    return random.choice(local_aux_nodes)
+                    return random.choice(list(local_aux_nodes))
         
         return None
 
@@ -257,7 +257,7 @@ class GraphEmbEnv(gym.Env):
 
         if self.priority_node in self.aux_nodes:
             local_aux_nodes = self.aux_nodes[self.priority_node]
-            anchor_node = random.choice(local_aux_nodes+[self.priority_node])
+            anchor_node = random.choice(list(local_aux_nodes)+[self.priority_node])
             self.modified_graph.add_edge(anchor_node, aux_node)
         else:
             self.modified_graph.add_edge(self.priority_node, aux_node)
