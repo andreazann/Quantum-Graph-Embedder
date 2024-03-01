@@ -17,6 +17,8 @@ import ast
 sys.path.append(os.path.abspath('/Env'))
 
 import graphEmbEnv as gee
+#import graphEmbEnvRndPriorityNode as gee
+#import graphEmbEnvRndAuxNode as gee
 from updateEnvCallback import UpdateEnvCallback
 
 
@@ -25,6 +27,8 @@ from stable_baselines3 import DQN
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.callbacks import CallbackList, CheckpointCallback, EvalCallback, StopTrainingOnRewardThreshold, EveryNTimesteps, StopTrainingOnNoModelImprovement
+
+best_act_active = True
 
 def argument_parser():
     """
@@ -108,6 +112,12 @@ def argument_parser():
         help="Subrun number")
     
     CLI.add_argument(
+        "--det",
+        type=bool,
+        default=False,
+        help="Deterministic output")
+    
+    CLI.add_argument(
         "--algo",
         type=str,
         default="PPO",
@@ -124,6 +134,12 @@ def argument_parser():
         type=int,
         default=None,
         help="Number of episodes to test")
+    
+    CLI.add_argument(
+        "--gen_img",
+        type=bool,
+        default=False,
+        help="Gen graph images for the test")
 
     args = CLI.parse_args()
     args = vars(args)
@@ -239,8 +255,11 @@ def main(name):
 
         for i in range(n_subrun):
 
+            model_set_folder = "set_"+launch_params['graph_set']
             model_name = model_name_clean+"_subrun"+str(i+1)
-            model_path = os.path.join('Training', 'Saved Models', model_name)
+            model_path = os.path.join('Training', 'Saved Models', model_set_folder, model_name)
+
+            log_path = os.path.join(log_path, model_set_folder)
 
             #checkpoint_path = os.path.join(model_path, 
             checkpoint_on_steps = CheckpointCallback(save_freq=SAVE_FREQ, save_path=model_path, verbose=2)
@@ -344,6 +363,7 @@ def main(name):
 
         env = gee.GraphEmbEnv([test_set[0]], target_graph, ep_perc, launch_params['norm'], launch_params['avg_heat'])
         env_rnd = gee.GraphEmbEnv([test_set[0]], target_graph, ep_perc, launch_params['norm'], launch_params['avg_heat'])
+        env_best = gee.GraphEmbEnv([test_set[0]], target_graph, ep_perc, launch_params['norm'], launch_params['avg_heat'])
 
         model_path = None
 
@@ -353,6 +373,11 @@ def main(name):
             model_set_folder = "set_"+launch_params['graph_set']
             model_name = launch_params['test']
             model_zip = "rl_model_100000_steps"
+
+
+        date_time = datetime.now().strftime("%Y-%m-%d_%H-%M-")
+        date_time_fld_path = os.path.join("Testing", date_time+launch_params['test'])
+        os.makedirs(date_time_fld_path, exist_ok=True)
 
         model_path = os.path.join('Training', 'Saved Models', model_set_folder, model_name, model_zip)
         model = None
@@ -367,7 +392,7 @@ def main(name):
         for subrun in range(launch_params['subrun']):
 
             date_time = datetime.now().strftime("%Y-%m-%d_%H-%M-")
-            date_time_fld_path = os.path.join("Testing", date_time+launch_params['test'])
+            subrun_fld = os.path.join(date_time_fld_path, "Subrun"+str(subrun+1))
             os.makedirs(date_time_fld_path, exist_ok=True)
 
             tot_rel_i = 0
@@ -380,6 +405,11 @@ def main(name):
             tot_rnd_rew_m = 0
             tot_rnd_total_qubits_m = 0
 
+            tot_best_i = 0
+            tot_best_ep_len_m = 0
+            tot_best_rew_m = 0
+            tot_best_total_qubits_m = 0
+
             tot_true_graph_qubits_m = 0
 
             curr_graph = 0
@@ -388,7 +418,7 @@ def main(name):
 
             for graph in test_set:
 
-                graph_fld = os.path.join(date_time_fld_path, f"Graph {curr_graph+1}")
+                graph_fld = os.path.join(subrun_fld, f"Graph {curr_graph+1}")
                 env.update_source_graph_set([graph])
 
                 rel_i = 0
@@ -401,6 +431,11 @@ def main(name):
                 rnd_rew_m = 0
                 rnd_total_qubits_m = 0
 
+                best_i = 0
+                best_ep_len_m = 0
+                best_rew_m = 0
+                best_total_qubits_m = 0
+
                 true_graph_qubits_m = 0
 
                 graph_action_freq = {}
@@ -409,16 +444,22 @@ def main(name):
                 for episode in range(1, episodes+1):
                     obs, _info = env.reset()
                     n_state, _info_rnd = env_rnd.reset()
+                    b_state, _info_best = env_best.reset()
                     terminated = False
                     terminated_rnd = False
+                    terminated_best = False
                     score = 0
                     score_rnd = 0
+                    score_best = 0
                     ts = 0
                     ts_rnd = 0
+                    ts_best = 0
                     info = {}
                     total_info = {}
                     info_rnd = {}
+                    info_best = {}
                     total_info_rnd = {}
+                    total_info_best = {}
                     action_freq = {}
                     
                     episode_fld = os.path.join(graph_fld, f"Episode {episode}")
@@ -426,11 +467,12 @@ def main(name):
                     total_info[0] = _info.copy()
                     #print("START NODES HEAT ", total_info[0]['nodes_heat'])
                     total_info_rnd[0] = _info_rnd.copy()
+                    total_info_best[0] = _info_best.copy()
                     init_action_freq(action_freq)
 
                     
                     while not terminated:
-                        action, _state = model.predict(obs)
+                        action, _state = model.predict(obs, deterministic=launch_params['det'])
                         obs, reward, terminated, truncated, info = env.step(action)
                         score+=reward
                         ts = ts+1
@@ -462,6 +504,22 @@ def main(name):
                         #print("reward rnd", reward)
                     print('Rnd\n\nEpisode:{} Score:{} Total timesteps:{}'.format(episode, score_rnd, ts_rnd))
 
+                    if best_act_active:
+                        while not terminated_best:
+                            #action, _state = env_rnd.action_space.sample()
+                            #print("STATE ", n_state.tolist())
+                            action = np.array(get_best_action(n_state.tolist().copy()))
+                            b_state, reward, terminated_best, truncated, info_best = env_best.step(action)
+                            score_best+=reward
+                            ts_best=ts_best+1
+                            total_info_best[ts_best] = info_best.copy()
+                            if(terminated_best and (not info_best['invalid_ep'])):
+                                best_ep_len_m = best_ep_len_m + ts_best
+                                best_rew_m = best_rew_m + score_best
+                                best_i = best_i + 1
+                            #print(info_best)
+                    print('Best action\n\nEpisode:{} Score:{} Total timesteps:{}'.format(episode, score_best, ts_best))
+
                     dim = start_dim
                     G = None
                     embedding_rel = None
@@ -483,6 +541,17 @@ def main(name):
                     embedding_rnd_comp = recompose_emb(embedding_rnd, info_rnd['aux_nodes'])
                     #save_figs(H, G, embedding_rnd, embedding_rnd_comp)
 
+                    embedding_best = None
+                    embedding_best_comp = None
+                    if best_act_active:
+                        embedding_best=find_embedding(info_best['modified_graph'], G)
+                        while not embedding_best:
+                            G=dnx.chimera_graph(dim, dim, 4) 
+                            embedding_best = find_embedding(info_best['modified_graph'], G)
+                            dim = dim+1
+                        embedding_best_comp = recompose_emb(embedding_best, info_best['aux_nodes'])
+                        #save_figs(H, G, embedding_rnd, embedding_rnd_comp)
+
                     if(not info['invalid_ep']):
                         ep_total_qubits = sum(len(l) for l in embedding_rel_comp.values())
                         rel_total_qubits_m = rel_total_qubits_m + ep_total_qubits
@@ -490,6 +559,10 @@ def main(name):
                     if(not info_rnd['invalid_ep']):
                         ep_total_qubits = sum(len(l) for l in embedding_rnd_comp.values())
                         rnd_total_qubits_m = rnd_total_qubits_m + ep_total_qubits
+
+                    if(not info_best['invalid_ep'] and best_act_active):
+                        ep_total_qubits = sum(len(l) for l in embedding_best_comp.values())
+                        best_total_qubits_m = best_total_qubits_m + ep_total_qubits
 
                     print(f"### TRUE GRAPH {curr_graph} ###")
                     
@@ -504,10 +577,62 @@ def main(name):
                     ep_total_qubits = sum(len(l) for l in embedding_true.values())
                     true_graph_qubits_m = true_graph_qubits_m + ep_total_qubits
 
-                    episode_log(episode, total_info, total_info_rnd, score, score_rnd, action_freq, info['modified_graph'], embedding_rel, embedding_rel_comp, embedding_rnd, embedding_rnd_comp, embedding_true, ts, ts_rnd, episode_fld)
-                    save_figs(H, G, embedding_rel, embedding_rel_comp, embedding_rnd, embedding_rnd_comp, embedding_true, episode_fld)
+                    rel_ep_log_dict = {"total_info": total_info,
+                                       "score": score,
+                                       "embedding_rel": embedding_rel,
+                                       "embedding_rel_comp": embedding_rel_comp,
+                                        "ts": ts
+                    }
 
-                total_test_log(graph_fld, rel_ep_len_m/rel_i, rel_rew_m/rel_i, rel_total_qubits_m/rel_i, rnd_ep_len_m/rnd_i, rnd_rew_m/rnd_i, rnd_total_qubits_m/rnd_i, true_graph_qubits_m/episodes, graph_action_freq)
+                    rnd_ep_log_dict = {"total_info_rnd": total_info_rnd,
+                                       "score_rnd": score_rnd,
+                                       "embedding_rnd": embedding_rnd,
+                                       "embedding_rnd_comp": embedding_rnd_comp,
+                                        "ts_rnd": ts_rnd
+                    }
+
+                    best_ep_log_dict = None
+                    if best_act_active:
+                        best_ep_log_dict = {"total_info_best": total_info_best,
+                                       "score_best": score_best,
+                                       "embedding_best": embedding_best,
+                                       "embedding_best_comp": embedding_best_comp,
+                                        "ts_best": ts_best
+                        }
+
+
+
+                    episode_log(episode, rel_ep_log_dict, rnd_ep_log_dict, best_ep_log_dict, embedding_true, action_freq, info['modified_graph'], episode_fld)
+                    if launch_params['gen_img']:
+                        save_figs(H, G, None, 'Source graph', 'source_graph.png', episode_fld)
+                        save_figs(None, G, embedding_rel, 'Embedding ReL', 'embedding_rel.png', episode_fld)
+                        save_figs(None, G, embedding_rel_comp, 'Embedding ReL Composed', 'embedding_rel_comp.png', episode_fld)
+                        save_figs(None, G, embedding_rnd, 'Embedding Random', 'embedding_rnd.png', episode_fld)
+                        save_figs(None, G, embedding_rnd_comp, 'Embedding Random Composed','embedding_rnd_comp.png', episode_fld)
+                        save_figs(None, G, embedding_true, 'Embedding True','embedding_true.png', episode_fld)
+
+                rel_log_dict = {"rel_ep_len_m":  rel_ep_len_m/rel_i,
+                                "rel_rew_m": rel_rew_m/rel_i,
+                                "rel_total_qubits_m": rel_total_qubits_m/rel_i,
+                }
+
+                rnd_log_dict = {"rnd_ep_len_m": rnd_ep_len_m/rnd_i,
+                                "rnd_rew_m": rnd_rew_m/rnd_i,
+                                "rnd_total_qubits_m": rnd_total_qubits_m/rnd_i
+                }
+
+                true_log_dict = {"true_total_qubits_m": true_graph_qubits_m/episodes
+                }
+
+                best_act_log_dict = None
+
+                if best_act_active:
+                    best_act_log_dict = {"best_ep_len_m":  best_ep_len_m/best_i,
+                                "best_rew_m": best_rew_m/best_i,
+                                "best_total_qubits_m": best_total_qubits_m/best_i,
+                    }
+
+                total_test_log(graph_fld, rel_log_dict, rnd_log_dict, true_log_dict, best_act_log_dict, graph_action_freq)
 
                 curr_graph = curr_graph + 1
 
@@ -521,32 +646,66 @@ def main(name):
                 tot_rnd_rew_m += rnd_rew_m
                 tot_rnd_total_qubits_m += rnd_total_qubits_m
 
+                if best_act_active:
+                    tot_best_i += best_i
+                    tot_best_ep_len_m += best_ep_len_m
+                    tot_best_rew_m += best_rew_m
+                    tot_best_total_qubits_m += best_total_qubits_m
+
                 tot_true_graph_qubits_m += true_graph_qubits_m
 
                 register_total_action_freq(total_action_freq, graph_action_freq)
 
-            total_test_log(date_time_fld_path, tot_rel_ep_len_m/tot_rel_i, tot_rel_rew_m/tot_rel_i, tot_rel_total_qubits_m/tot_rel_i, tot_rnd_ep_len_m/tot_rnd_i, tot_rnd_rew_m/tot_rnd_i, tot_rnd_total_qubits_m/tot_rnd_i, tot_true_graph_qubits_m/(len(test_set)*episodes), total_action_freq)
+            tot_rel_log_dict = {"rel_ep_len_m":  tot_rel_ep_len_m/tot_rel_i,
+                            "rel_rew_m": tot_rel_rew_m/tot_rel_i,
+                            "rel_total_qubits_m": tot_rel_total_qubits_m/tot_rel_i,
+            }
+
+            tot_rnd_log_dict = {"rnd_ep_len_m": tot_rnd_ep_len_m/tot_rnd_i,
+                            "rnd_rew_m": tot_rnd_rew_m/tot_rnd_i,
+                            "rnd_total_qubits_m": tot_rnd_total_qubits_m/tot_rnd_i
+            }
+
+            tot_true_log_dict = {"true_total_qubits_m": tot_true_graph_qubits_m/(len(test_set)*episodes)
+            }
+
+            tot_best_act_log_dict = None
+
+            if best_act_active:
+                tot_best_act_log_dict = {"best_ep_len_m":  tot_best_ep_len_m/tot_best_i,
+                            "best_rew_m": tot_best_rew_m/tot_best_i,
+                            "best_total_qubits_m": tot_best_total_qubits_m/tot_best_i,
+                }
+
+            
+            total_test_log(subrun_fld, tot_rel_log_dict, tot_rnd_log_dict, tot_true_log_dict, tot_best_act_log_dict, total_action_freq)
         
     env.close()
 
-def episode_log(episode, total_info, total_info_rnd, score, score_rnd, action_freq, rel_graph, embedding_rel, embedding_rel_comp, embedding_rnd, embedding_rnd_comp, embedding_true, ts, ts_rnd, episode_fld):
+def episode_log(episode, rel_ep_log_dict, rnd_ep_log_dict, best_ep_log_dict, embedding_true, action_freq, rel_graph, episode_fld):
 
-    ep_rel_total_qubits = sum(len(l) for l in embedding_rel_comp.values())
-    ep_rnd_total_qubits = sum(len(l) for l in embedding_rnd_comp.values())
+    ep_rel_total_qubits = sum(len(l) for l in rel_ep_log_dict['embedding_rel_comp'].values())
+    ep_rnd_total_qubits = sum(len(l) for l in rnd_ep_log_dict['embedding_rnd_comp'].values())
+    ep_best_total_qubits = 0
+    if best_act_active:
+        ep_best_total_qubits = sum(len(l) for l in best_ep_log_dict['embedding_best_comp'].values())
     ep_true_total_qubits = sum(len(l) for l in embedding_true.values())
 
     file_content = f"Episode: {episode}\n\n"
-    file_content = f"{file_content}START HEAT: {total_info[0]['start_heat']}\n\nSTART NODES HEAT: {total_info[0]['nodes_heat']}\n\nSTART EMBEDDING: {total_info[0]['embeddings']}\n\nScore: {score}\nTotal timesteps: {ts}\nReL qubits used: {ep_rel_total_qubits}\nRnd qubits used: {ep_rnd_total_qubits}\nTrue emb qubits used: {ep_true_total_qubits}\n\nActions frequency: {action_freq}\n\nReL graph: {rel_graph.edges()}\n\nEmbedding ReL: {embedding_rel}\n\nEmbedding ReL Composed: {embedding_rel_comp}\n\n"
+    file_content = f"{file_content}START HEAT: {rel_ep_log_dict['total_info'][0]['start_heat']}\n\nSTART NODES HEAT: {rel_ep_log_dict['total_info'][0]['nodes_heat']}\n\nSTART EMBEDDING: {rel_ep_log_dict['total_info'][0]['embeddings']}\n\nScore: {rel_ep_log_dict['score']}\nTotal timesteps: {rel_ep_log_dict['ts']}\nReL qubits used: {ep_rel_total_qubits}\nRnd qubits used: {ep_rnd_total_qubits}\Best action qubits used: {ep_best_total_qubits}\nTrue emb qubits used: {ep_true_total_qubits}\n\nActions frequency: {action_freq}\n\nReL graph: {rel_graph.edges()}\n\nEmbedding ReL: {rel_ep_log_dict['embedding_rel']}\n\nEmbedding ReL Composed: {rel_ep_log_dict['embedding_rel_comp']}\n\n"
 
-    for k in range(1, len(total_info)):
+    for k in range(1, len(rel_ep_log_dict['total_info'])):
         neighbor_selected = ""
-        if total_info[k]['action'] < len(total_info[k]['neighbors']):
-            neighbor_selected = total_info[k]['neighbors'][total_info[k]['action']]
+        if rel_ep_log_dict['total_info'][k]['action'] < len(rel_ep_log_dict['total_info'][k]['neighbors']):
+            neighbor_selected = rel_ep_log_dict['total_info'][k]['neighbors'][rel_ep_log_dict['total_info'][k]['action']]
         else:
             neighbor_selected = -1
-        file_content = f"{file_content}\t### TIMESTEP {k} ###\n\n\tNodes heat: {total_info[k]['nodes_heat']}\n\n\tAvg heat: {total_info[k]['avg_heat']}\n\n\tTarget heat: {total_info[k]['target_heat']}\n\n\tEmbeddings: {total_info[k]['embeddings']}\n\n\tPriority node: {total_info[k]['priority_node']}\n\n\tAction node selected: {neighbor_selected}\n\n\tAction selected: {total_info[k]['action']}\n\n\tState: {total_info[k]['state']}\n\n\tAvail aux node: {total_info[k]['avail_aux_node']}\n\n"
+        file_content = f"{file_content}\t### TIMESTEP {k} ###\n\n\tNodes heat: {rel_ep_log_dict['total_info'][k]['nodes_heat']}\n\n\tAvg heat: {rel_ep_log_dict['total_info'][k]['avg_heat']}\n\n\tTarget heat: {rel_ep_log_dict['total_info'][k]['target_heat']}\n\n\tEmbeddings: {rel_ep_log_dict['total_info'][k]['embeddings']}\n\n\tPriority node: {rel_ep_log_dict['total_info'][k]['priority_node']}\n\n\tAction node selected: {neighbor_selected}\n\n\tAction selected: {rel_ep_log_dict['total_info'][k]['action']}\n\n\tState: {rel_ep_log_dict['total_info'][k]['state']}\n\n\tAvail aux node: {rel_ep_log_dict['total_info'][k]['avail_aux_node']}\n\n"
 
-    file_content = f"{file_content}Score random: {score_rnd}\nTotal timesteps random: {ts_rnd}\n\nEmbedding ReL: {embedding_rnd}\n\nEmbedding ReL Composed: {embedding_rnd_comp}\n\n"
+    file_content = f"{file_content}Score random: {rnd_ep_log_dict['score_rnd']}\nTotal timesteps random: {rnd_ep_log_dict['ts_rnd']}\n\nEmbedding ReL: {rnd_ep_log_dict['embedding_rnd']}\n\nEmbedding ReL Composed: {rnd_ep_log_dict['embedding_rnd_comp']}\n\n"
+
+    if best_act_active:
+        file_content = f"{file_content}\nScore best action: {best_ep_log_dict['score_best']}\nTotal timesteps best action: {best_ep_log_dict['ts_best']}\n\nEmbedding best action: {best_ep_log_dict['embedding_best']}\n\nEmbedding best action Composed: {best_ep_log_dict['embedding_best_comp']}\n\n"
 
     file_path = os.path.join(episode_fld, "episode_info.txt")
 
@@ -554,14 +713,18 @@ def episode_log(episode, total_info, total_info_rnd, score, score_rnd, action_fr
     with open(file_path, 'w') as file:
         file.write(file_content)
 
-def total_test_log(log_fld, rel_ep_len_m, rel_rew_m, rel_total_qubits_m, rnd_ep_len_m, rnd_rew_m, rnd_total_qubits_m, true_total_qubits_m, total_action_freq):
+def total_test_log(log_fld, rel_log_dict, rnd_log_dict, true_total_dict, best_act_log_dict, total_action_freq):
 
     testing_log_path = os.path.join(log_fld, "cumulative_info.txt")
 
-    improv_perc = "+"+str(((rel_total_qubits_m-true_total_qubits_m)/true_total_qubits_m)*100) if rel_total_qubits_m > true_total_qubits_m else "-"+str(((true_total_qubits_m-rel_total_qubits_m)/rel_total_qubits_m)*100)
+    improv_perc = "+"+str(((rel_log_dict['rel_total_qubits_m']-true_total_dict['true_total_qubits_m'])/true_total_dict['true_total_qubits_m'])*100) if rel_log_dict['rel_total_qubits_m'] > true_total_dict['true_total_qubits_m'] else "-"+str(((true_total_dict['true_total_qubits_m']-rel_log_dict['rel_total_qubits_m'])/rel_log_dict['rel_total_qubits_m'])*100)
     improv_perc = improv_perc[0:5]+"%"
 
-    file_content = f"RL\n\nep_len_mean: {rel_ep_len_m}\nrew_mean: {rel_rew_m}\nep_qubits_mean: {rel_total_qubits_m}\n\nRND\n\nep_len_mean: {rnd_ep_len_m}\nrew_mean: {rnd_rew_m}\nep_qubits_mean: {rnd_total_qubits_m}\n\nTRUE EMBEDDING\n\nep_qubits_mean: {true_total_qubits_m}\n\nActions frequency: {total_action_freq}\n\nRESULT:\n\n{improv_perc} qubits used"
+    best_act_file_content = ""
+    if best_act_active:
+        best_act_file_content = f"BEST ACTION\n\nep_len_mean: {best_act_log_dict['best_ep_len_m']}\nrew_mean: {best_act_log_dict['best_rew_m']}\nep_qubits_mean: {best_act_log_dict['best_total_qubits_m']}\n\n"
+
+    file_content = f"RL\n\nep_len_mean: {rel_log_dict['rel_ep_len_m']}\nrew_mean: {rel_log_dict['rel_rew_m']}\nep_qubits_mean: {rel_log_dict['rel_total_qubits_m']}\n\nRND\n\nep_len_mean: {rnd_log_dict['rnd_ep_len_m']}\nrew_mean: {rnd_log_dict['rnd_rew_m']}\nep_qubits_mean: {rnd_log_dict['rnd_total_qubits_m']}\n\n{best_act_file_content}TRUE EMBEDDING\n\nep_qubits_mean: {true_total_dict['true_total_qubits_m']}\n\nActions frequency: {total_action_freq}\n\nRESULT:\n\n{improv_perc} qubits used"
 
     with open(testing_log_path, 'w') as file:
         file.write(file_content)
@@ -574,6 +737,17 @@ def get_n_valid_actions(state):
             break
         n_valid_actions += 1
     return n_valid_actions
+
+def get_best_action(state):
+    pos = 0
+    i = 0
+    max_heat = 0
+    for elem in state:
+        if elem > max_heat:
+            max_heat = elem
+            pos = i
+        i = i + 1
+    return pos
 
 def recompose_emb(emb, aux_nodes):
     embedding = emb.copy()
@@ -615,50 +789,22 @@ def get_graph_dataset(dataset_folder, dataset_file_name):
 
     return graphs_list
 
-def save_figs(H, G, embedding_rel, embedding_rel_comp, embedding_rnd, embedding_rnd_comp, embedding_true, episode_fld):
+def save_figs(H, G, embedding, image_title, file_name, episode_fld):
 
-    fig_path = os.path.join(episode_fld, 'source_graph.png')
-    nx.draw(H, with_labels=True, font_weight='bold')
-    plt.title("Source graph")
-    plt.savefig(fig_path)
-    plt.close()
-
-    f, axes = plt.subplots(1, 1)
-    fig_path = os.path.join(episode_fld, 'embedding_rel.png')
-    dnx.draw_chimera_embedding(G, embedding_rel, show_labels=True)
-    plt.title("Embedding ReL")
-    plt.savefig(fig_path)
-    #plt.show()
-    plt.close()
-
-    f, axes = plt.subplots(1, 1)
-    fig_path = os.path.join(episode_fld, 'embedding_rel_comp.png')
-    dnx.draw_chimera_embedding(G, embedding_rel_comp, show_labels=True)
-    plt.title("Embedding ReL Composed")
-    plt.savefig(fig_path)
-    #plt.show()
-    plt.close()
-
-    f, axes = plt.subplots(1, 1)
-    fig_path = os.path.join(episode_fld, 'embedding_rnd.png')
-    dnx.draw_chimera_embedding(G, embedding_rnd, show_labels=True)
-    plt.title("Embedding Random")
-    plt.savefig(fig_path)
-    plt.close()
-
-    f, axes = plt.subplots(1, 1)
-    fig_path = os.path.join(episode_fld, 'embedding_rnd_comp.png')
-    dnx.draw_chimera_embedding(G, embedding_rnd_comp, show_labels=True)
-    plt.title("Embedding Random Composed")
-    plt.savefig(fig_path)
-    plt.close()
-
-    f, axes = plt.subplots(1, 1)
-    fig_path = os.path.join(episode_fld, 'embedding_true.png')
-    dnx.draw_chimera_embedding(G, embedding_true, show_labels=True)
-    plt.title("Embedding True")
-    plt.savefig(fig_path)
-    plt.close()
+    if(H):
+        fig_path = os.path.join(episode_fld, 'source_graph.png')
+        nx.draw(H, with_labels=True, font_weight='bold')
+        plt.title("Source graph")
+        plt.savefig(fig_path)
+        plt.close()
+    elif(embedding):
+        f, axes = plt.subplots(1, 1)
+        fig_path = os.path.join(episode_fld, file_name)
+        dnx.draw_chimera_embedding(G, embedding, show_labels=True)
+        plt.title(image_title)
+        plt.savefig(fig_path)
+        #plt.show()
+        plt.close()
 
 def print_selected(info):
     keys_to_exclude = {'modified_graph', 'aux_nodes'}
