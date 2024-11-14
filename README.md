@@ -13,10 +13,9 @@ with evaluations on datasets of 15, 30, and 50-node graphs.
 
 # Instructions for use
 
-1. Install conda packages from this requirements file > [requirements.txt](https://github.com/user-attachments/files/17758436/requirements.txt)
-stable-baselines3[extra] needs to be installed with pip install stable-baselines3[extra]
+1. Install conda packages from this requirements file > [requirements.txt](https://github.com/user-attachments/files/17758436/requirements.txt) (stable-baselines3[extra] needs to be installed with `pip install stable-baselines3[extra]`)
 
-2. Launch with `python rel-embedder.py [args]`
+3. Launch with `python rel-embedder.py [args]`
 
 ## Arguments for training a model
 
