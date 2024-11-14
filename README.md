@@ -67,7 +67,7 @@ The arc shared by the priority node and the adjacent node is removed and an auxi
 ## 2.6 Reward relevant to graph embedding
 
 The ideal **reward** would be a reward that at each timestep can show the **progress** of the process of lowering the heat of the graph and that is **invariant to the graph** that is **analyzed** by the agent. 
-For this reason the reward function has been defined as: log(*prevAvgHeat/currAvgHeat*)
+For this reason the reward function has been defined as: `log(prevAvgHeat/currAvgHeat)`
 Where *prevAvgHeat* represents the average heat of the graph at timestep - 1, while currAvgHeat represents the average heat of the graph at the current timestep.
 
 ## 2.7 Episode termination condition
@@ -75,7 +75,7 @@ Where *prevAvgHeat* represents the average heat of the graph at timestep - 1, wh
 As stated in 2.6 the reward function is expressed as a progress at each timestep of the difference of heat with respect to the previous timestep, it would be convenient to base the episode termination
 condition on the same concept. In fact if we set this condition as a percentage of heat to reach we will obtain a total reward for each episode that is very similar between graphs having
 different complexities. Given that we have a starting average heat defined as startAvgHeat, a current average heat as currAvgHeat and a percentage of progress of i.e. 10% passed as parameter
-to the agent, the episode termination condition will be defined as: *currAvgHeat* ≤ *startAvgHeat* ∗ (1 − 0.1)
+to the agent, the episode termination condition will be defined as: `currAvgHeat ≤ startAvgHeat ∗ (1 − 0.1)`
 
 ## 2.8 Definition of Single-Traveler agent on a graph
 
@@ -86,9 +86,57 @@ identified in a big portion of the step function of the Custom Gym Environment:
 
 <img width="607" alt="single-agent-algorithm" src="https://github.com/user-attachments/assets/9d484344-2200-4e7f-a871-5c516105fc77">
 
-continuing readme today.. 14/11/2024
+# Custom parameters introduced to improve performance of RL model
+
+* **Episode percentage**: this parameter, expressed as a percentage in terms of heat to reach, sets for the agent a limit that terminates the episode.
+* **Average heat**: boolean parameter that if set to False it will exclude the heat of auxiliary nodes when calculating the average heat of the graph.
+* **Normalized heat**: boolean parameter if set to true all the heat values are normalized, otherwise their absolute value is kept.
+
+## Example of embedding optimized via RL
+
+For ease of understanding let’s first consider a graph taken from the dataset of graphs composed by 15 nodes and on average 5 chains of 2 qubits. The RL agent will take in input the source graph show below and will start forming initial chains at each timestep. 
+
+<img width="357" alt="single-agent-algorithm" src="https://github.com/user-attachments/assets/8a69486c-65be-4c21-8967-7613534efd67">
+
+Once the episode is concluded, the resulting graph will be passed to the minorminer heuristic. The output produced will be the following:
+
+<img width="357" alt="single-agent-algorithm" src="https://github.com/user-attachments/assets/7031eb0d-888a-43c2-9df9-cca2a2603714">
+
+Nodes having the same coloring belong to the same chain. Labeled nodes with indices represent the starting node of each chain, while nodes without an index represent nodes added to the
+chain. In this case the RL model added to the embedding of 15 chains numered from 0 to 14, the new chain 16 composed of one node.   
+Now we will proceed to assign the chain formed by the RL agent to the original nodes to which it should be assigned.
+
+<img width="357" alt="single-agent-algorithm" src="https://github.com/user-attachments/assets/d69d1165-775a-42ab-9559-3316e2f03aaf">
+
+We notice how the node with index 16 has been reassigned to node 0, changing color and being part of the chain of node 0 now. 
+
+What the minorminer heuristic has produced without the help of the RL model, is the embedding below:
+
+<img width="357" alt="single-agent-algorithm" src="https://github.com/user-attachments/assets/2d18e404-7745-4b14-9b7e-0717593aac7b">
+
+Assessing the result for this example, we have that the RL model+heuristic performed better then the heuristic alone, needing 20 qubits compared to the 23 qubits needing by minorminer.  
+
+Another example showing the same steps but with bigger graphs is shown below.  
+
+Source graph passed to the RL model:
+
+<img width="357" alt="single-agent-algorithm" src="https://github.com/user-attachments/assets/42ce61a8-65c7-49f0-bf9e-060faeae1739">
+
+Output graph from the RL model + heuristic:
+
+<img width="357" alt="single-agent-algorithm" src="https://github.com/user-attachments/assets/22377402-40a8-4034-93ca-3af858330cdf">
+
+Assigning chains formed by the RL model:
+
+<img width="357" alt="single-agent-algorithm" src="https://github.com/user-attachments/assets/8f2f6340-662a-4081-8701-980fd12dfaff">
+
+Output graph from the minorminer heuristic alone:
+
+<img width="357" alt="single-agent-algorithm" src="https://github.com/user-attachments/assets/57460363-040b-4cac-9c7d-f510f5b7a953">
 
 
+
+For an Experimental setup overview, quantitative and qualitative results and future improvemtents, please refer to chapter 4 of the Executive Summary linked at the beginning of this README.
 
 
 
