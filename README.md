@@ -166,7 +166,7 @@ Output graph from the minorminer heuristic alone:
 The cumulative reward of the the models just analyzed is shown in the figure below: PPO model trained on dataset n30c20, DQN model trained on dataset
 n30c20, PPO model trained on dataset n50c20.
 
-<img width="357" alt="single-agent-algorithm" src="https://github.com/user-attachments/assets/b0e6802c-a6eb-47f8-9d63-4a940c5dbb24">
+<img width="557" alt="single-agent-algorithm" src="https://github.com/user-attachments/assets/b0e6802c-a6eb-47f8-9d63-4a940c5dbb24">
 
 We notice how the DQN on n30c20 model reaches a lower reward at convergence than PPO on n30c20, and how the PPO model trained on the n50c20 dataset apparently reaches a good reward in spite of the drop in performance. This would support the idea that the algorithm managing the generation of auxiliary nodes doesn’t scale well on large graphs by creating nodes that make the minorminor heuristic underperform and use more qubits
 than necessary even tough the agent performed well by obtaining a good reward and thus lowering the heat of the graph efficiently.
