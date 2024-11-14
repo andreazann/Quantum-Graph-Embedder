@@ -1,6 +1,6 @@
 # Single-Agent Graph Embedding for Quantum Computers via Reinforcement Learning - Master Thesis @ Politecnico di Milano
 
-pytorch > gym > stablebaselines3 
+pytorch > gymnasium > stablebaselines3 
 
 Full thesis at [Thesis_Complete.pdf](https://github.com/user-attachments/files/17742457/Thesis_Complete.pdf)
 
