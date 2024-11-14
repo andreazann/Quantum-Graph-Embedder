@@ -6,10 +6,37 @@ Full thesis at [Thesis_Complete.pdf](https://github.com/user-attachments/files/1
 
 Thesis summary at [Thesis_Executive_Summary.pdf](https://github.com/user-attachments/files/17742460/Thesis_Executive_Summary.pdf)
 
-This project discusses how supercomputers alone are insufficient for tackling NP-hard problems, exemplified by the Graph Minor Embedding problem, crucial for quantum computing with D-Wave systems. 
-The work focuses on using Reinforcement Learning (RL) techniques to enhance heuristics like D-Wave's minorminer for embedding problems on a Quantum Processing Unit (QPU). 
+Supercomputers alone are insufficient for tackling NP-hard problems, one of them is the Graph Minor Embedding problem, crucial for quantum computing with D-Wave systems. 
+This work focuses on using Reinforcement Learning (RL) techniques to enhance heuristics like D-Wave's minorminer for embedding problems on a Quantum Processing Unit (QPU). 
 The study explores PPO and DQN RL models to optimize embeddings, aiming to reduce the number of qubits needed. Performance comparisons are made against the state-of-the-art, 
 with evaluations on datasets of 15, 30, and 50-node graphs.
+
+# Instructions for use
+
+1. Install conda packages from this requirements file > [requirements.txt](https://github.com/user-attachments/files/17758436/requirements.txt)
+
+2. Launch with `python rel-embedder.py [args]`
+
+## Arguments for training a model
+
+* --train1: this parameter is used when we want train a new model, pass a string representing the name of the model that will be saved. 
+* --graph_set: when using this parameter when can pass a graphSet on which to train the model. Available sets and associated strings are "n30c20x10" (set of 10 graphs with 30 nodes and 20% of connectivity), "n30c20x20", "n50c20x10", "n50c20x20" with the same logic
+* --ts: number of timesteps to train the model. Default is 100000
+* --lr: with this parameter we can set the learning rate. Default is 0.0003
+* --ent_coef: accepts a float that represents the entropy coefficient the model. Default is 0
+* --gamma: sets the gamma parameter of the model. Default is 0.99
+* --norm: if set to true, the heat values will be normalized to a float between 0 and 1. Otherwise the absolute values will be kept. Default is False
+* --avg_heat: when set to true, the heat value of auxiliary nodes is included into the calculation of the average heat for the graph. Default is True
+* --ep_perc: with this parameter we can set the percentage of heat to reach in order to end the episode. Default is 0.1, 10%
+* --subrun: number of training runs to perform with the same settings. Default is 1
+* --algo: accepts either strings "PPO" or "DQN" to set the algorithm for the training. Default is "PPO"
+
+## Arguments for testing a model
+
+* --test: used when testing a model. The name of the model is passed to this parameter.
+* --graph_set: when using this parameter when can pass a graph_set on which to test the model
+* --ep: sets the total number of episodes per run
+* --subrun: number of testing runs to perform on the same model
 
 ## 1.1 Graph Embedding in Quantum Computing
 
@@ -136,7 +163,7 @@ Output graph from the minorminer heuristic alone:
 
 
 
-For an Experimental setup overview, quantitative and qualitative results and future improvemtents, please refer to chapter 4 of the Executive Summary linked at the beginning of this README.
+For an Experimental setup overview, quantitative and qualitative results and future improvemtents, please refer to chapter 4 of the Executive Summary or chapter 5 of the Complete Thesis linked at the beginning of this README.
 
 
 
