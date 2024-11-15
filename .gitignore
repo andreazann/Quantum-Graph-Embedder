@@ -7,3 +7,9 @@
 /Training/Saved\ Models/*
 
 /Training/Logs/*
+
+!/Training/Saved\ Models/set_n30c20x10/.gitkeep
+
+!/Training/Logs/set_n30c20x10/.gitkeep
+
+
